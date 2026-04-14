@@ -173,30 +173,47 @@ function EventDetailModal({
   })
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [saveError, setSaveError] = useState('')
 
   async function handleSave() {
     setSaving(true)
-    const res = await fetch(`/api/events/${event.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(editForm),
-    })
-    setSaving(false)
-    if (res.ok) {
-      const updated = await res.json()
-      onUpdate({ ...event, ...updated })
-      setEditing(false)
+    setSaveError('')
+    try {
+      const res = await fetch(`/api/events/${event.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editForm),
+      })
+      const json = await res.json()
+      if (res.ok) {
+        onUpdate({ ...event, ...json })
+        setEditing(false)
+      } else {
+        setSaveError(json.error ?? '저장에 실패했습니다.')
+      }
+    } catch {
+      setSaveError('네트워크 오류가 발생했습니다.')
+    } finally {
+      setSaving(false)
     }
   }
 
   async function handleDelete() {
     if (!confirm('이 일정을 삭제할까요?')) return
     setDeleting(true)
-    const res = await fetch(`/api/events/${event.id}`, { method: 'DELETE' })
-    setDeleting(false)
-    if (res.ok) {
-      onDelete(event.id)
-      onClose()
+    try {
+      const res = await fetch(`/api/events/${event.id}`, { method: 'DELETE' })
+      if (res.ok) {
+        onDelete(event.id)
+        onClose()
+      } else {
+        const json = await res.json()
+        alert(json.error ?? '삭제에 실패했습니다.')
+      }
+    } catch {
+      alert('네트워크 오류가 발생했습니다.')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -263,6 +280,7 @@ function EventDetailModal({
                 rows={3}
                 className="text-sm border border-border rounded-lg px-3 py-1.5 outline-none resize-none"
               />
+              {saveError && <p className="text-xs text-red-500">{saveError}</p>}
               <div className="flex gap-2">
                 <button
                   onClick={handleSave}
