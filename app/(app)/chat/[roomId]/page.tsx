@@ -46,7 +46,7 @@ async function getInitialMessages(roomId: string): Promise<Message[]> {
 }
 
 const ROOM_EMOJI: Record<string, string> = {
-  '전체방': '💬', '입문반': '🌱', '중급반': '⚡', '고급반': '🚀',
+  '전체방': '💬', '입문반': '🌱', '실전반': '⚡',
 }
 
 export default async function ChatRoomPage({ params }: { params: Promise<{ roomId: string }> }) {

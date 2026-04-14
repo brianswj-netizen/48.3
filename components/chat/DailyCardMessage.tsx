@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { useState } from 'react'
 
 export interface DailyCardData {
   category: 'ai_news' | 'tips' | 'deep_article' | 'kr_news'
@@ -16,6 +16,8 @@ export interface DailyCardData {
   date: string
 }
 
+export type ReactionData = { emoji: string; count: number; mine: boolean }
+
 const CAT = {
   ai_news:      { color: '#2880A0', light: '#DFF0F8', chip: '📰 AI 뉴스',  label: '오늘의 AI 뉴스' },
   tips:         { color: '#7B6FC4', light: '#EDEBFA', chip: '🛠 실전 팁',   label: '오늘의 실전 팁' },
@@ -29,6 +31,8 @@ const LEVEL = {
   advanced:     { emoji: '🔴', label: '심화', bg: '#dc262620', border: '#dc262640', color: '#f87171' },
 }
 
+const QUICK_EMOJIS = ['❤️', '😂', '👍', '🙏', '🔥', '😮']
+
 function formatDate(dateStr: string) {
   const d = new Date(dateStr + 'T00:00:00')
   const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -37,14 +41,13 @@ function formatDate(dateStr: string) {
   return `${d.getFullYear()}.${mm}.${dd} · ${days[d.getDay()]}`
 }
 
-// 간단한 마크다운 인라인 파서: **bold**, ==highlight==
 function renderInline(text: string, catColor: string, catLight: string) {
+  text = text.replace(/<cite[^>]*>([\s\S]*?)<\/cite>/g, '$1')
   const parts: React.ReactNode[] = []
   const regex = /\*\*(.+?)\*\*|==(.+?)==/g
   let last = 0
   let match: RegExpExecArray | null
   let key = 0
-
   while ((match = regex.exec(text)) !== null) {
     if (match.index > last) parts.push(text.slice(last, match.index))
     if (match[1]) {
@@ -66,14 +69,24 @@ interface DailyCardProps {
   data: DailyCardData
   messageId?: string
   roomId?: string
-  likeCount?: number
-  likedByMe?: boolean
-  onLike?: () => void
+  reactions?: ReactionData[]
+  onReaction?: (emoji: string) => void
+  commentCount?: number
+  onOpenComments?: () => void
 }
 
-export default function DailyCardMessage({ data, likeCount = 0, likedByMe = false, onLike }: DailyCardProps) {
-  const cat   = CAT[data.category]   ?? CAT.ai_news
+export default function DailyCardMessage({
+  data,
+  reactions = [],
+  onReaction,
+  commentCount = 0,
+  onOpenComments,
+}: DailyCardProps) {
+  const cat   = CAT[data.category] ?? CAT.ai_news
   const level = LEVEL[data.level ?? 'beginner']
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+
+  const hasInteraction = !!onReaction || !!onOpenComments
 
   return (
     <div style={{
@@ -168,8 +181,6 @@ export default function DailyCardMessage({ data, likeCount = 0, likedByMe = fals
         <div style={{ fontSize:10, fontWeight:800, letterSpacing:'1.2px', textTransform:'uppercase', color:cat.color, marginBottom:10 }}>
           ✦ 자세히 읽기
         </div>
-
-        {/* 실전 팁: tip-card 리스트 */}
         {data.tips && data.tips.length > 0 ? (
           <ul style={{ listStyle:'none', padding:0, margin:0, display:'flex', flexDirection:'column', gap:8 }}>
             {data.tips.map((tip, i) => (
@@ -189,7 +200,6 @@ export default function DailyCardMessage({ data, likeCount = 0, likedByMe = fals
             ))}
           </ul>
         ) : (
-          /* 일반 본문 */
           <div style={{ fontSize:13, color:'#4B5563', lineHeight:1.85, wordBreak:'keep-all' }}>
             {(data.body ?? '').split('\n').map((para, i) =>
               para.trim() ? (
@@ -220,6 +230,58 @@ export default function DailyCardMessage({ data, likeCount = 0, likedByMe = fals
         </div>
       )}
 
+      {/* ── REACTIONS + COMMENT ROW (only when interactive) ── */}
+      {hasInteraction && (
+        <div style={{ padding:'10px 16px', borderTop:'1px solid #E8DDD0', display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
+          {/* 💬 댓글 버튼 — 왼쪽 앞에 배치하여 눈에 잘 띄게 */}
+          {onOpenComments && (
+            <button
+              onClick={onOpenComments}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 5,
+                padding: '5px 12px', borderRadius: 20,
+                border: commentCount > 0 ? `1.5px solid ${cat.color}` : '1px solid #E8DDD0',
+                background: commentCount > 0 ? cat.light : '#FAF6ED',
+                cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
+              }}
+            >
+              <span style={{ fontSize: 14, lineHeight: 1 }}>💬</span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: commentCount > 0 ? cat.color : '#6B7280' }}>
+                {commentCount > 0 ? commentCount : '댓글'}
+              </span>
+            </button>
+          )}
+          {/* 구분선 */}
+          {onOpenComments && <div style={{ width: 1, height: 18, background: '#E8DDD0', flexShrink: 0 }} />}
+          {QUICK_EMOJIS.map(emoji => {
+            const r = reactions.find(rx => rx.emoji === emoji)
+            const count = r?.count ?? 0
+            const mine = r?.mine ?? false
+            return (
+              <button
+                key={emoji}
+                onClick={() => onReaction?.(emoji)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 4,
+                  padding: count > 0 ? '5px 10px' : '5px 8px',
+                  borderRadius: 20,
+                  border: mine ? `1.5px solid ${cat.color}` : '1px solid #E8DDD0',
+                  background: mine ? cat.light : '#FAF6ED',
+                  cursor: onReaction ? 'pointer' : 'default',
+                  fontFamily: 'inherit',
+                  transition: 'all 0.15s',
+                }}
+              >
+                <span style={{ fontSize: 16, lineHeight: 1 }}>{emoji}</span>
+                {count > 0 && (
+                  <span style={{ fontSize: 11, fontWeight: 700, color: mine ? cat.color : '#6B7280' }}>{count}</span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
       {/* ── FOOTER ── */}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 16px', borderTop:'1px solid #E8DDD0' }}>
         {data.source_url ? (
@@ -229,20 +291,8 @@ export default function DailyCardMessage({ data, likeCount = 0, likedByMe = fals
             borderRadius:8, border:'1px solid #E8DDD0', color:'#8B7B6B', background:'#FAF6ED',
           }}>🔗 원문 보기</a>
         ) : <div />}
+
         <div style={{ display:'flex', gap:8 }}>
-          <button
-            onClick={onLike ?? (() => {})}
-            style={{
-              fontSize: 13, fontWeight: 600, padding: '6px 13px', borderRadius: 8,
-              border: `1px solid ${likedByMe ? cat.color : '#E8DDD0'}`,
-              color: likedByMe ? cat.color : '#6B7280',
-              background: likedByMe ? cat.light : 'white',
-              cursor: 'pointer', fontFamily: 'inherit',
-              transition: 'all 0.15s',
-              display: 'flex', alignItems: 'center', gap: 5,
-            }}>
-            👍{likeCount > 0 ? ` ${likeCount}` : ''}
-          </button>
           <button
             onClick={async () => {
               const shareData = {

@@ -40,17 +40,25 @@ export default function MessageInput({ onSend, members = [] }: Props) {
   const [showEmoji, setShowEmoji] = useState(false)
   const [mentionQuery, setMentionQuery] = useState<string | null>(null)
   const [mentionStart, setMentionStart] = useState(0)
+  const [imageUrl, setImageUrl] = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   async function handleSend() {
     const trimmed = text.trim()
-    if (!trimmed || sending) return
+    const hasImage = !!imageUrl
+    if (!trimmed && !hasImage || sending) return
     setSending(true)
+    const messageText = hasImage
+      ? (trimmed ? `${trimmed}\n__IMAGE__:${imageUrl}` : `__IMAGE__:${imageUrl}`)
+      : trimmed
     setText('')
+    setImageUrl(null)
     setShowEmoji(false)
     setMentionQuery(null)
     if (textareaRef.current) textareaRef.current.style.height = 'auto'
-    try { await onSend(trimmed) }
+    try { await onSend(messageText) }
     finally { setSending(false); textareaRef.current?.focus() }
   }
 
@@ -94,6 +102,23 @@ export default function MessageInput({ onSend, members = [] }: Props) {
         textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 120) + 'px'
       }
     })
+  }
+
+  async function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    const fd = new FormData()
+    fd.append('file', file)
+    fd.append('type', 'chat')
+    const res = await fetch('/api/upload', { method: 'POST', body: fd })
+    if (res.ok) {
+      const { url } = await res.json()
+      setImageUrl(url)
+    }
+    setUploading(false)
+    // reset
+    if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
   function insertEmoji(emoji: string) {
@@ -162,6 +187,16 @@ export default function MessageInput({ onSend, members = [] }: Props) {
         </div>
       )}
 
+      {/* 이미지 미리보기 */}
+      {imageUrl && (
+        <div className="mb-2 relative inline-block">
+          <img src={imageUrl} alt="첨부 이미지" className="h-20 w-auto rounded-xl object-cover" style={{ border: '1px solid var(--border)' }} />
+          <button onClick={() => setImageUrl(null)}
+            className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-gray-600 text-white text-xs flex items-center justify-center">
+            ✕
+          </button>
+        </div>
+      )}
       <div className="flex items-end gap-1.5">
         <button type="button" onClick={() => setShowEmoji(v => !v)}
           className="w-9 h-9 flex items-center justify-center rounded-full text-xl shrink-0 transition-colors"
@@ -169,6 +204,20 @@ export default function MessageInput({ onSend, members = [] }: Props) {
           aria-label="이모지">
           😊
         </button>
+        <button type="button" onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          className="w-9 h-9 flex items-center justify-center rounded-full text-lg shrink-0 transition-colors disabled:opacity-40"
+          style={{ color: imageUrl ? 'var(--purple)' : '#9CA3AF' }}
+          aria-label="이미지 첨부">
+          {uploading ? '⏳' : '🖼️'}
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleImageSelect}
+        />
         <textarea
           ref={textareaRef}
           value={text}
@@ -179,7 +228,7 @@ export default function MessageInput({ onSend, members = [] }: Props) {
           className="flex-1 resize-none text-sm text-gray-900 placeholder:text-muted outline-none bg-gray-50 rounded-2xl px-4 py-2.5 leading-relaxed"
           style={{ maxHeight: 120, minHeight: 40 }}
         />
-        <button onClick={handleSend} disabled={!text.trim() || sending}
+        <button onClick={handleSend} disabled={(!text.trim() && !imageUrl) || sending}
           className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-opacity disabled:opacity-30"
           style={{ background: 'var(--purple)' }}>
           <SendIcon />

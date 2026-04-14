@@ -8,7 +8,7 @@ import SuggestionsClient from '@/components/SuggestionsClient'
 const getSuggestionsRaw = unstable_cache(
   async () => {
     const supabase = createAdminClient()
-    const [suggestionsRes, likesRes] = await Promise.all([
+    const [suggestionsRes, likesRes, commentsRes] = await Promise.all([
       supabase
         .from('suggestions')
         .select('id, title, description, category, status, created_at, author_id, author:users!author_id(name, nickname)')
@@ -17,10 +17,14 @@ const getSuggestionsRaw = unstable_cache(
       supabase
         .from('suggestion_likes')
         .select('suggestion_id, user_id'),
+      supabase
+        .from('suggestion_comments')
+        .select('suggestion_id'),
     ])
     return {
       suggestions: suggestionsRes.data ?? [],
       likes: likesRes.data ?? [],
+      comments: commentsRes.data ?? [],
     }
   },
   ['suggestions-raw'],
@@ -28,7 +32,7 @@ const getSuggestionsRaw = unstable_cache(
 )
 
 export default async function SuggestionsPage() {
-  const [user, { suggestions, likes }, members] = await Promise.all([
+  const [user, { suggestions, likes, comments }, members] = await Promise.all([
     getCurrentUser(),
     getSuggestionsRaw(),
     getMentionMembers(),
@@ -36,10 +40,12 @@ export default async function SuggestionsPage() {
 
   const enriched = suggestions.map((s: any) => {
     const sLikes = likes.filter((l: any) => l.suggestion_id === s.id)
+    const commentCount = comments.filter((c: any) => c.suggestion_id === s.id).length
     return {
       ...s,
       like_count: sLikes.length,
       liked_by_me: user?.id ? sLikes.some((l: any) => l.user_id === user.id) : false,
+      comment_count: commentCount,
     }
   })
 

@@ -5,15 +5,15 @@ import DesignInspirationSection from '@/components/DesignInspirationSection'
 import LabSection from '@/components/LabSection'
 
 const baseMenus = [
-  { href: '/settings',  emoji: '⚙️', label: '설정',       desc: '프로필·알림·글자크기 설정' },
-  { href: '/members',   emoji: '👥', label: '멤버 소개',   desc: '16명의 크루를 확인하세요' },
-  { href: '/groups',    emoji: '🫂', label: '소모임',      desc: '입문·중급·고급·업종별 모임' },
-  { href: '/suggestions', emoji: '💡', label: '제안',      desc: '앱·모임 개선 아이디어 공유' },
-  { href: '/votes',     emoji: '🗳️', label: '투표',        desc: '진행 중인 투표에 참여하세요' },
+  { href: '/settings',    emoji: '⚙️',  label: '설정',       desc: '프로필·알림·글자크기 설정',      iconBg: '#0EA5E9', iconLight: '#F0F9FF' },
+  { href: '/members',     emoji: '👥',  label: '멤버 소개',  desc: '16명의 크루를 확인하세요',        iconBg: '#F59E0B', iconLight: '#FFFBEB' },
+  { href: '/groups',      emoji: '🫂',  label: '소모임',     desc: '입문반·실전반 소모임',            iconBg: '#7C3AED', iconLight: '#F5F3FF' },
+  { href: '/suggestions', emoji: '💡',  label: '제안',       desc: '앱·모임 개선 아이디어 공유',      iconBg: '#F43F5E', iconLight: '#FFF1F2' },
+  { href: '/votes',       emoji: '🗳️',  label: '투표',       desc: '진행 중인 투표에 참여하세요',     iconBg: '#DC2626', iconLight: '#FEF2F2' },
 ]
 
 const adminMenus = [
-  { href: '/admin', emoji: '🔑', label: '멤버 승인', desc: '가입 대기 중인 멤버를 승인하세요' },
+  { href: '/admin', emoji: '🔑', label: '멤버 승인', desc: '가입 대기 중인 멤버를 승인하세요', iconBg: '#4F46E5', iconLight: '#EEF2FF' },
 ]
 
 export default async function MorePage() {
@@ -46,15 +46,18 @@ export default async function MorePage() {
             {adminMenus.map((menu) => (
               <Link key={menu.href} href={menu.href}>
                 <div
-                  className="bg-white rounded-[14px] px-4 py-4 flex items-center gap-4 active:bg-gray-50"
+                  className="bg-white rounded-[14px] px-4 py-3.5 flex items-center gap-4 active:bg-gray-50"
                   style={{ border: '0.5px solid var(--border)' }}
                 >
-                  <span className="text-2xl w-9 text-center">{menu.emoji}</span>
+                  <div className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 text-xl"
+                    style={{ background: menu.iconLight }}>
+                    {menu.emoji}
+                  </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-semibold text-gray-900">{menu.label}</p>
                       {pendingCount > 0 && (
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white" style={{ background: '#5B8DB0' }}>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white" style={{ background: menu.iconBg }}>
                           {pendingCount}
                         </span>
                       )}
@@ -69,13 +72,17 @@ export default async function MorePage() {
         )}
 
         {/* 일반 메뉴 */}
+        <p className="text-[11px] font-bold text-muted uppercase tracking-wider px-1">메뉴</p>
         {baseMenus.map((menu) => (
           <Link key={menu.href} href={menu.href}>
             <div
-              className="bg-white rounded-[14px] px-4 py-4 flex items-center gap-4 active:bg-gray-50"
+              className="bg-white rounded-[14px] px-4 py-3.5 flex items-center gap-4 active:bg-gray-50"
               style={{ border: '0.5px solid var(--border)' }}
             >
-              <span className="text-2xl w-9 text-center">{menu.emoji}</span>
+              <div className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 text-xl"
+                style={{ background: menu.iconLight }}>
+                {menu.emoji}
+              </div>
               <div className="flex-1">
                 <p className="text-sm font-semibold text-gray-900">{menu.label}</p>
                 <p className="text-xs text-muted mt-0.5">{menu.desc}</p>

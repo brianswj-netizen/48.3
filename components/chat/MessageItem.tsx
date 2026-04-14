@@ -3,7 +3,8 @@
 import { useRef, useState } from 'react'
 import Image from 'next/image'
 import type { Message } from '@/lib/types'
-import DailyCardMessage, { type DailyCardData } from './DailyCardMessage'
+import DailyCardMessage, { type DailyCardData, type ReactionData as CardReactionData } from './DailyCardMessage'
+import CardCommentDrawer from './CardCommentDrawer'
 
 const DAILY_CARD_PREFIX = '__DAILY_CARD__:'
 const COLLAPSE_THRESHOLD = 150
@@ -29,9 +30,15 @@ function formatTime(iso: string) {
 }
 
 function Avatar({ name, avatarUrl, size = 36 }: { name: string; avatarUrl?: string | null; size?: number }) {
+  const [imgError, setImgError] = useState(false)
   const initial = name?.charAt(0) ?? '?'
-  if (avatarUrl) return (
-    <Image src={avatarUrl} alt={name} width={size} height={size} className="rounded-full object-cover shrink-0" style={{ width: size, height: size }} />
+  if (avatarUrl && !imgError) return (
+    <Image
+      src={avatarUrl} alt={name} width={size} height={size}
+      className="rounded-full object-cover shrink-0"
+      style={{ width: size, height: size }}
+      onError={() => setImgError(true)}
+    />
   )
   return (
     <div className="rounded-full flex items-center justify-center shrink-0 text-white text-sm font-bold"
@@ -65,16 +72,20 @@ export default function MessageItem({
   const time = formatTime(message.created_at)
   const textClass = fontSize === 'large' ? 'text-base' : 'text-sm'
 
-  const isLong = message.text.length > COLLAPSE_THRESHOLD
+  const textOnly = message.text.split('\n').filter((l: string) => !l.startsWith('__IMAGE__:')).join('\n')
+  const isLong = textOnly.length > COLLAPSE_THRESHOLD
   const [expanded, setExpanded] = useState(false)
   const [editing, setEditing] = useState(false)
   const [editText, setEditText] = useState(message.text)
   const [savingEdit, setSavingEdit] = useState(false)
   const [showReactPicker, setShowReactPicker] = useState(false)
+  const [showComments, setShowComments] = useState(false)
+  const [cardCommentCount, setCardCommentCount] = useState(0)
 
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   function startLongPress() {
+    if (isMine) return  // 본인 메시지에는 리액션 불가
     pressTimer.current = setTimeout(() => setShowReactPicker(true), 500)
   }
   function cancelLongPress() {
@@ -105,7 +116,6 @@ export default function MessageItem({
   // ─── 데일리 카드 ───
   const cardData = parseDailyCard(message.text)
   if (cardData) {
-    const likeReaction = reactions.find(r => r.emoji === '👍')
     return (
       <div className="px-4 mb-3">
         {showSender && (
@@ -116,16 +126,26 @@ export default function MessageItem({
         )}
         <DailyCardMessage
           data={cardData}
-          likeCount={likeReaction?.count ?? 0}
-          likedByMe={likeReaction?.mine ?? false}
-          onLike={() => onReaction?.('👍')}
+          reactions={reactions as CardReactionData[]}
+          onReaction={isMine ? undefined : onReaction}
+          commentCount={cardCommentCount}
+          onOpenComments={() => setShowComments(true)}
         />
         <span className="text-[10px] text-muted mt-1 block">{time}</span>
+        <CardCommentDrawer
+          messageId={message.id}
+          roomId={message.room_id}
+          currentUserId={currentUserId ?? ''}
+          isAdmin={isAdmin}
+          isOpen={showComments}
+          onClose={() => setShowComments(false)}
+          onCountChange={setCardCommentCount}
+        />
       </div>
     )
   }
 
-  const displayText = isLong && !expanded ? message.text.slice(0, COLLAPSE_THRESHOLD) + '…' : message.text
+  const displayText = isLong && !expanded ? textOnly.slice(0, COLLAPSE_THRESHOLD) + '…' : message.text
 
   // @멘션 하이라이트 렌더링
   function renderWithMentions(text: string) {
@@ -137,19 +157,42 @@ export default function MessageItem({
     )
   }
 
+  function renderMessageContent(text: string) {
+    const lines = text.split('\n')
+    const imageLines = lines.filter(l => l.startsWith('__IMAGE__:'))
+    const textLines = lines.filter(l => !l.startsWith('__IMAGE__:'))
+    const textPart = textLines.join('\n').trim()
+    const imageUrls = imageLines.map(l => l.replace('__IMAGE__:', ''))
+    return (
+      <>
+        {textPart && <span>{renderWithMentions(textPart)}</span>}
+        {imageUrls.map((url, i) => (
+          <img key={i} src={url} alt="첨부 이미지"
+            className="mt-1.5 rounded-xl max-w-full object-cover block"
+            style={{ maxHeight: 240, cursor: 'pointer' }}
+            onClick={() => window.open(url, '_blank')}
+          />
+        ))}
+      </>
+    )
+  }
+
   // ─── 퀵 리액션 피커 ───
   const ReactionPicker = () => (
     <>
       <div className="fixed inset-0 z-20" onClick={() => setShowReactPicker(false)} />
       <div className={`relative z-30 flex items-center gap-1.5 px-3 py-2 bg-white rounded-2xl shadow-xl border border-border mb-1 ${isMine ? 'self-end' : 'self-start ml-9'}`}>
         {QUICK_REACTIONS.map(({ emoji, bg, active }) => {
-          const hasMyReaction = reactions.find(r => r.emoji === emoji)?.mine
+          const reaction = reactions.find(r => r.emoji === emoji)
+          const hasMyReaction = reaction?.mine ?? false
+          const count = reaction?.count ?? 0
           return (
             <button key={emoji}
               onClick={() => { onReaction?.(emoji); setShowReactPicker(false) }}
-              className="w-9 h-9 rounded-full flex items-center justify-center text-xl transition-transform active:scale-90"
+              className="flex flex-col items-center justify-center w-10 h-10 rounded-full transition-transform active:scale-90"
               style={{ background: hasMyReaction ? active + '33' : bg, border: hasMyReaction ? `1.5px solid ${active}` : 'none' }}>
-              {emoji}
+              <span className="text-lg leading-none">{emoji}</span>
+              {count > 0 && <span className="text-[9px] font-bold leading-none mt-0.5" style={{ color: hasMyReaction ? active : '#6B7280' }}>{count}</span>}
             </button>
           )
         })}
@@ -199,15 +242,15 @@ export default function MessageItem({
             style={{ background: 'var(--purple)', userSelect: 'none' }}
             onMouseDown={startLongPress} onMouseUp={cancelLongPress} onMouseLeave={cancelLongPress}
             onTouchStart={startLongPress} onTouchEnd={cancelLongPress} onTouchMove={cancelLongPress}
-            onContextMenu={e => { e.preventDefault(); setShowReactPicker(true) }}>
-            {renderWithMentions(displayText)}
+            onContextMenu={e => e.preventDefault()}>
+            {renderMessageContent(displayText)}
             {message.edited && <span className="text-white/60 text-[10px] ml-1">(수정됨)</span>}
           </div>
         )}
         {!editing && isLong && (
-          <div className="flex justify-end mt-0.5">
+          <div className="flex justify-end mt-1">
             <button onClick={() => setExpanded(v => !v)} className="text-[11px] font-medium" style={{ color: 'var(--purple)' }}>
-              {expanded ? '접기' : '더 보기'}
+              {expanded ? '접기 ↑' : '더 보기 ↓'}
             </button>
           </div>
         )}
@@ -228,40 +271,44 @@ export default function MessageItem({
     <div className="flex flex-col px-4 mb-1">
       {showReactPicker && <ReactionPicker />}
       <div className="flex items-start gap-2">
-        {/* 왼쪽: 아바타 + 이름 + 시간 수직 배열 */}
-        <div className="shrink-0 flex flex-col items-center gap-0.5" style={{ width: 44 }}>
-          {showSender && <Avatar name={displayName} avatarUrl={sender?.avatar_url} size={36} />}
+        {/* 아바타 */}
+        <div className="shrink-0 mt-0.5" style={{ width: 36 }}>
+          {showSender
+            ? <Avatar name={displayName} avatarUrl={sender?.avatar_url} size={36} />
+            : <div style={{ width: 36, height: 36 }} />}
+        </div>
+        {/* 오른쪽: 이름+시간 헤더 + 말풍선 */}
+        <div className="flex flex-col max-w-[72%]">
           {showSender && (
-            <div className="flex flex-col items-center">
-              <span className="text-[9px] font-semibold text-gray-600 text-center leading-tight max-w-[44px] truncate">{displayName}</span>
-              <span className="text-[9px] text-muted">{time}</span>
+            <div className="flex items-baseline gap-1.5 mb-1">
+              <span className="text-[11px] font-semibold text-gray-700 leading-none">{displayName}</span>
+              <span className="text-[10px] text-muted leading-none">{time}</span>
             </div>
           )}
-          {!showSender && <div style={{ width: 36, height: 36 }} />}
-        </div>
-        {/* 오른쪽: 말풍선만 */}
-        <div className="flex flex-col max-w-[72%]">
           <div
             className={`px-3.5 py-2.5 rounded-2xl rounded-tl-sm ${textClass} text-gray-900 bg-white border border-border leading-relaxed whitespace-pre-wrap`}
             style={{ userSelect: 'none' }}
             onMouseDown={startLongPress} onMouseUp={cancelLongPress} onMouseLeave={cancelLongPress}
             onTouchStart={startLongPress} onTouchEnd={cancelLongPress} onTouchMove={cancelLongPress}
             onContextMenu={e => { e.preventDefault(); setShowReactPicker(true) }}>
-            {renderWithMentions(displayText)}
+            {renderMessageContent(displayText)}
             {message.edited && <span className="text-gray-400 text-[10px] ml-1">(수정됨)</span>}
           </div>
           {isLong && (
             <button onClick={() => setExpanded(v => !v)}
-              className="text-[11px] font-medium mt-0.5 self-start ml-0.5" style={{ color: 'var(--purple)' }}>
-              {expanded ? '접기' : '더 보기'}
+              className="text-[11px] font-medium mt-1 self-start" style={{ color: 'var(--purple)' }}>
+              {expanded ? '접기 ↑' : '더 보기 ↓'}
             </button>
           )}
           {canDelete && (
             <div className="flex gap-2 mt-0.5">
-              {canDelete && <button onClick={handleDelete} className="text-[10px] text-red-300 hover:text-red-500">삭제</button>}
+              <button onClick={handleDelete} className="text-[10px] text-red-300 hover:text-red-500">삭제</button>
             </div>
           )}
           <ReactionBadges />
+          {!showSender && (
+            <span className="text-[10px] text-muted mt-0.5">{time}</span>
+          )}
         </div>
       </div>
     </div>

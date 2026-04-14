@@ -11,6 +11,8 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: 'img3.kakaocdn.net' },
       { protocol: 'https', hostname: 'blogstorage.kakaocdn.net' },
       { protocol: 'https', hostname: 'profile.kakao.com' },
+      // Supabase Storage (앱 내 업로드 이미지)
+      { protocol: 'https', hostname: 'fpppqkanuznlvjhxmpuk.supabase.co' },
     ],
     // WebP 자동 변환 + 브라우저 캐시 1주일
     formats: ['image/avif', 'image/webp'],

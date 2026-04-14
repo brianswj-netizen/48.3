@@ -45,6 +45,7 @@ export default async function AnnouncementsPage() {
       title: item.title,
       content: item.content,
       created_at: item.created_at,
+      author_id: item.created_by ?? null,
       authorName: author?.name ?? author?.nickname ?? '',
       reactions: reactionMap,
     }

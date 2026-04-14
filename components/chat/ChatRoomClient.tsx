@@ -43,8 +43,9 @@ export default function ChatRoomClient({ roomId, roomName, initialMessages, curr
   const bottomRef = useRef<HTMLDivElement>(null)
   const supabase = createClient()
 
+  // 설정에서 저장된 전체 앱 글자 크기를 채팅에도 반영
   useEffect(() => {
-    const saved = localStorage.getItem('chatFontSize') as 'normal' | 'large' | null
+    const saved = localStorage.getItem('appFontSize') as 'normal' | 'large' | null
     if (saved) setFontSize(saved)
   }, [])
 
@@ -55,12 +56,6 @@ export default function ChatRoomClient({ roomId, roomName, initialMessages, curr
       .then(data => { if (data && typeof data === 'object') setReactionsMap(data) })
       .catch(() => {})
   }, [roomId])
-
-  function toggleFontSize() {
-    const next = fontSize === 'normal' ? 'large' : 'normal'
-    setFontSize(next)
-    localStorage.setItem('chatFontSize', next)
-  }
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -110,10 +105,23 @@ export default function ChatRoomClient({ roomId, roomName, initialMessages, curr
     setMessages(prev => prev.map(m => m.id === id ? { ...m, text: newText, edited: true } : m))
   }
 
-  async function handleReaction(messageId: string, emoji: string) {
-    // 낙관적 업데이트
+  async function handleReaction(messageId: string, emoji: string, senderId: string) {
+    // 본인 메시지에는 리액션 불가
+    if (senderId === currentUserId) return
+
+    // 낙관적 업데이트 (exclusive: 기존 mine 리액션 제거 후 새로 추가)
     setReactionsMap(prev => {
       const list = [...(prev[messageId] ?? [])]
+
+      // 이미 다른 이모지에 mine이 있으면 제거
+      const prevMineIdx = list.findIndex(r => r.mine)
+      if (prevMineIdx >= 0 && list[prevMineIdx].emoji !== emoji) {
+        const oldCount = list[prevMineIdx].count - 1
+        if (oldCount === 0) list.splice(prevMineIdx, 1)
+        else list[prevMineIdx] = { ...list[prevMineIdx], count: oldCount, mine: false }
+      }
+
+      // 현재 이모지 토글
       const idx = list.findIndex(r => r.emoji === emoji)
       if (idx >= 0) {
         const r = list[idx]
@@ -129,6 +137,7 @@ export default function ChatRoomClient({ roomId, roomName, initialMessages, curr
       }
       return { ...prev, [messageId]: list }
     })
+
     // API 호출
     await fetch(`/api/chat/${roomId}/messages/${messageId}/reactions`, {
       method: 'POST',
@@ -142,20 +151,6 @@ export default function ChatRoomClient({ roomId, roomName, initialMessages, curr
 
   return (
     <div className="flex flex-col h-full">
-      {/* 글씨 크기 토글 */}
-      <div className="flex justify-end px-4 py-1.5 border-b border-border bg-white">
-        <button
-          onClick={toggleFontSize}
-          className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full transition-colors"
-          style={fontSize === 'large'
-            ? { background: 'var(--purple)', color: 'white' }
-            : { background: '#F3F4F6', color: '#6B7280' }}>
-          <span style={{ fontSize: fontSize === 'large' ? 13 : 11 }}>가</span>
-          <span style={{ fontSize: fontSize === 'large' ? 11 : 13 }}>가</span>
-          {fontSize === 'large' ? ' 크게' : ' 기본'}
-        </button>
-      </div>
-
       {/* 메시지 목록 */}
       <div className="flex-1 overflow-y-auto py-3">
         {messages.length === 0 && (
@@ -186,7 +181,7 @@ export default function ChatRoomClient({ roomId, roomName, initialMessages, curr
                 reactions={reactionsMap[msg.id] ?? []}
                 onDelete={handleDeleteMessage}
                 onEdit={handleEditMessage}
-                onReaction={(emoji) => handleReaction(msg.id, emoji)}
+                onReaction={(emoji) => handleReaction(msg.id, emoji, msg.sender_id)}
               />
             </div>
           )

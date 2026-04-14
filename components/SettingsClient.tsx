@@ -3,11 +3,11 @@
 import { useState, useRef, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { UserProfile } from '@/lib/user'
+import { CrewScoreFullCard } from '@/components/CrewScoreCard'
 
 const SUBGROUPS = [
   { value: '입문반', label: '🌱 입문반', desc: 'AI 처음이에요' },
-  { value: '중급반', label: '⚡ 중급반', desc: '실무에 써보고 싶어요' },
-  { value: '고급반', label: '🚀 고급반', desc: '직접 만들어볼게요' },
+  { value: '실전반', label: '⚡ 실전반', desc: '실무에 바로 써볼게요' },
 ]
 
 const NOTIF_LABELS = [
@@ -241,6 +241,9 @@ export default function SettingsClient({ user }: { user: UserProfile }) {
       </header>
 
       <div className="px-4 py-4 flex flex-col gap-4">
+
+        {/* 크루 점수 카드 */}
+        <CrewScoreFullCard score={user.score ?? 0} level={user.level ?? 1} />
 
         {/* 소모임 강제 안내 */}
         {requireSubgroup && (

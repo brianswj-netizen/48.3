@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
   const body = await req.json()
   const { bio, subgroup } = body
 
-  const validSubgroups = ['입문반', '중급반', '고급반']
+  const validSubgroups = ['입문반', '실전반']
   if (subgroup && !validSubgroups.includes(subgroup)) {
     return NextResponse.json({ error: '올바른 소모임을 선택해주세요.' }, { status: 400 })
   }

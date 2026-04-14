@@ -17,19 +17,30 @@ export async function POST(req: NextRequest, { params }: Params) {
   const { data: user } = await supabase.from('users').select('id').eq('kakao_id', session.user.kakaoId).single()
   if (!user) return NextResponse.json({ error: '유저 없음' }, { status: 404 })
 
+  // 본인 글에는 리액션 불가
+  const { data: ann } = await supabase.from('announcements').select('created_by').eq('id', id).single()
+  if (ann?.created_by === user.id) {
+    return NextResponse.json({ error: '본인 글에는 리액션할 수 없습니다' }, { status: 403 })
+  }
+
+  // 이 유저의 기존 리액션 조회 (이모지 종류 무관 — 하나만 허용)
   const { data: existing } = await supabase
     .from('announcement_reactions')
-    .select('id')
+    .select('id, emoji')
     .eq('announcement_id', id)
     .eq('user_id', user.id)
-    .eq('emoji', emoji)
     .maybeSingle()
 
+  if (existing && existing.emoji === emoji) {
+    // 같은 이모지 클릭 → 토글 off
+    await supabase.from('announcement_reactions').delete().eq('id', existing.id)
+    return NextResponse.json({ reacted: false, emoji, previousEmoji: null })
+  }
+
+  // 다른 이모지 → 기존 삭제 후 새로 추가
   if (existing) {
     await supabase.from('announcement_reactions').delete().eq('id', existing.id)
-    return NextResponse.json({ reacted: false, emoji })
-  } else {
-    await supabase.from('announcement_reactions').insert({ announcement_id: id, user_id: user.id, emoji })
-    return NextResponse.json({ reacted: true, emoji })
   }
+  await supabase.from('announcement_reactions').insert({ announcement_id: id, user_id: user.id, emoji })
+  return NextResponse.json({ reacted: true, emoji, previousEmoji: existing?.emoji ?? null })
 }

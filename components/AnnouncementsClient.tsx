@@ -11,6 +11,7 @@ type Announcement = {
   title: string
   content: string
   created_at: string
+  author_id?: string | null
   authorName: string
   reactions: Record<string, { count: number; reacted: boolean }>
 }
@@ -255,20 +256,29 @@ export default function AnnouncementsClient({
       body: JSON.stringify({ emoji }),
     })
     if (!res.ok) return
-    const json = await res.json()
+    const json = await res.json() // { reacted, emoji, previousEmoji }
 
     setAllReactions(prev => {
       const current = { ...(prev[announcementId] ?? {}) }
+
+      // 이전 이모지가 다른 것이었다면 카운트 차감
+      if (json.previousEmoji && json.previousEmoji !== emoji) {
+        const prevData = current[json.previousEmoji]
+        if (prevData) {
+          const newCount = prevData.count - 1
+          if (newCount <= 0) delete current[json.previousEmoji]
+          else current[json.previousEmoji] = { count: newCount, reacted: false }
+        }
+      }
+
+      // 현재 이모지 업데이트
       const existing = current[emoji] ?? { count: 0, reacted: false }
       if (json.reacted) {
         current[emoji] = { count: existing.count + 1, reacted: true }
       } else {
         const newCount = existing.count - 1
-        if (newCount <= 0) {
-          delete current[emoji]
-        } else {
-          current[emoji] = { count: newCount, reacted: false }
-        }
+        if (newCount <= 0) delete current[emoji]
+        else current[emoji] = { count: newCount, reacted: false }
       }
       return { ...prev, [announcementId]: current }
     })
@@ -345,11 +355,11 @@ export default function AnnouncementsClient({
                   /* ── 보기 모드 ── */
                   <>
                     {/* 항목 헤더 — 클릭으로 펼치기/접기 */}
-                    <div
-                      className="flex items-start justify-between gap-2 cursor-pointer"
-                      onClick={() => !isAdmin && toggleExpand(item.id)}
-                    >
-                      <div className="flex-1" onClick={() => toggleExpand(item.id)}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div
+                        className="flex-1 cursor-pointer"
+                        onClick={() => toggleExpand(item.id)}
+                      >
                         <p className="text-sm font-bold text-gray-900 leading-snug">{item.title}</p>
                         <div className="flex items-center gap-2 mt-1">
                           <span className="text-xs text-muted">{item.authorName}</span>
@@ -375,13 +385,14 @@ export default function AnnouncementsClient({
                             </button>
                           </>
                         )}
-                        <span
-                          className="text-muted text-sm transition-transform duration-200 pl-1"
-                          style={{ display: 'inline-block', transform: expanded === item.id ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                        <button
+                          className="flex items-center justify-center w-8 h-8 rounded-lg text-muted hover:bg-gray-100 transition-all duration-200"
+                          style={{ transform: expanded === item.id ? 'rotate(180deg)' : 'rotate(0deg)' }}
                           onClick={() => toggleExpand(item.id)}
+                          aria-label="펼치기/접기"
                         >
                           ⌄
-                        </span>
+                        </button>
                       </div>
                     </div>
 
@@ -391,28 +402,35 @@ export default function AnnouncementsClient({
                         <p className="text-xs text-gray-600 leading-relaxed whitespace-pre-wrap">{item.content}</p>
 
                         {/* 이모지 리액션 바 */}
-                        <div className="flex items-center gap-2 mt-3 flex-wrap">
-                          {EMOJIS.map(emoji => {
-                            const r = reactions[emoji]
-                            const reacted = r?.reacted ?? false
-                            const count = r?.count ?? 0
-                            return (
-                              <button
-                                key={emoji}
-                                onClick={() => handleReact(item.id, emoji)}
-                                className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold transition-colors"
-                                style={
-                                  reacted
-                                    ? { background: '#E07B54', color: 'white' }
-                                    : { background: '#FDF0EB', color: '#E07B54' }
-                                }
-                              >
-                                <span>{emoji}</span>
-                                {count > 0 && <span>{count}</span>}
-                              </button>
-                            )
-                          })}
-                        </div>
+                        {(() => {
+                          const isSelf = !!(currentUserId && item.author_id && currentUserId === item.author_id)
+                          return (
+                            <div className="flex items-center gap-2 mt-3 flex-wrap">
+                              {EMOJIS.map(emoji => {
+                                const r = reactions[emoji]
+                                const reacted = r?.reacted ?? false
+                                const count = r?.count ?? 0
+                                return (
+                                  <button
+                                    key={emoji}
+                                    onClick={() => !isSelf && handleReact(item.id, emoji)}
+                                    disabled={isSelf}
+                                    title={isSelf ? '본인 글에는 리액션할 수 없습니다' : undefined}
+                                    className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                    style={
+                                      reacted
+                                        ? { background: '#E07B54', color: 'white' }
+                                        : { background: '#FDF0EB', color: '#E07B54' }
+                                    }
+                                  >
+                                    <span>{emoji}</span>
+                                    {count > 0 && <span>{count}</span>}
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          )
+                        })()}
 
                         {/* 댓글 섹션 */}
                         <AnnCommentSection

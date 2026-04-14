@@ -12,9 +12,8 @@ type Member = {
 }
 
 const LEVEL_GROUPS = [
-  { emoji: '🌱', name: '입문반', desc: 'AI 처음이에요',       color: '#1D9E75', subgroup: '입문반' },
-  { emoji: '⚡', name: '중급반', desc: '실무에 써보고 싶어요', color: '#534AB7', subgroup: '중급반' },
-  { emoji: '🚀', name: '고급반', desc: '직접 만들어볼게요',    color: '#1B1F3B', subgroup: '고급반' },
+  { emoji: '🌱', name: '입문반', desc: 'AI 처음이에요',        color: '#1D9E75', subgroup: '입문반' },
+  { emoji: '⚡', name: '실전반', desc: '실무에 바로 써볼게요', color: '#534AB7', subgroup: '실전반' },
 ]
 
 function Avatar({ name, avatarUrl }: { name: string; avatarUrl?: string | null }) {
@@ -96,8 +95,8 @@ export default function GroupsClient({ members }: { members: Member[] }) {
           )
         })}
 
-        {/* 업종별 - 정적 표시 유지 */}
-        <p className="text-xs font-semibold text-muted mt-2">업종별</p>
+        {/* 관심 종류별 - 정적 표시 유지 */}
+        <p className="text-xs font-semibold text-muted mt-2">관심 종류별 <span className="font-normal text-muted/60">(기능 추후 개발)</span></p>
         <p className="text-[11px] text-muted/70 -mt-2">유사한 관심을 가진 분들끼리 만들어 사용하세요.</p>
         {[
           { emoji: '🏗️', name: '시행·개발 AI' },

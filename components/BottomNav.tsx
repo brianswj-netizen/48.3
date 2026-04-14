@@ -22,7 +22,7 @@ const tabs = [
   },
   {
     href: '/chat',
-    label: '채팅',
+    label: '라운지',
     activeColor: '#E4C0B0',
     icon: (active: boolean, color: string) => (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -92,6 +92,8 @@ export default function BottomNav({
 
           // 홈 탭: 미읽 멘션 배지
           const showHomeBadge = tab.href === '/' && unreadMentionCount > 0
+          // 더보기 탭: 멤버 승인 대기 배지 (admin만)
+          const showMoreBadge = tab.href === '/more' && isAdmin && pendingCount > 0
 
           return (
             <Link
@@ -108,6 +110,12 @@ export default function BottomNav({
                   <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-0.5 rounded-full text-white text-[9px] font-bold flex items-center justify-center"
                     style={{ background: '#F59E0B' }}>
                     {unreadMentionCount > 9 ? '9+' : unreadMentionCount}
+                  </span>
+                )}
+                {showMoreBadge && (
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-0.5 rounded-full text-white text-[9px] font-bold flex items-center justify-center"
+                    style={{ background: '#EF4444' }}>
+                    {pendingCount > 9 ? '9+' : pendingCount}
                   </span>
                 )}
               </div>

@@ -488,14 +488,14 @@ export default function CalendarClient({
             return (
               <div
                 key={i}
-                className="flex flex-col items-center py-1"
+                className="flex flex-col items-center"
                 onClick={() => day !== null && toggleDay(day)}
-                style={{ cursor: day !== null ? 'pointer' : 'default' }}
+                style={{ cursor: day !== null ? 'pointer' : 'default', touchAction: 'manipulation', minHeight: 40 }}
               >
                 {day !== null ? (
                   <>
                     <span
-                      className={`w-7 h-7 flex items-center justify-center rounded-full text-sm transition-colors ${
+                      className={`w-9 h-9 flex items-center justify-center rounded-full text-sm transition-colors ${
                         isToday ? 'text-white font-bold' : isSelected ? 'font-bold' : 'text-gray-800'
                       }`}
                       style={
@@ -510,7 +510,7 @@ export default function CalendarClient({
                     </span>
                     {hasEvent && (
                       <span
-                        className="w-1 h-1 rounded-full mt-0.5"
+                        className="w-1 h-1 rounded-full -mt-0.5"
                         style={{ background: 'var(--purple)' }}
                       />
                     )}
