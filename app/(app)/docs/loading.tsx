@@ -1,0 +1,15 @@
+import { SkeletonBox, SkeletonCard } from '@/components/Skeleton'
+
+export default function DocsLoading() {
+  return (
+    <div className="flex flex-col min-h-full">
+      <header className="px-5 pt-12 pb-4 md:pt-6 bg-white border-b border-border">
+        <SkeletonBox className="h-6 w-20" />
+      </header>
+      <div className="px-4 py-4 flex flex-col gap-3">
+        <SkeletonBox className="h-10 w-full rounded-xl" />
+        {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} rows={2} />)}
+      </div>
+    </div>
+  )
+}

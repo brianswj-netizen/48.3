@@ -1,0 +1,9 @@
+{
+  "regions": ["icn1"],
+  "crons": [
+    {
+      "path": "/api/cron/daily-card",
+      "schedule": "0 23 * * *"
+    }
+  ]
+}

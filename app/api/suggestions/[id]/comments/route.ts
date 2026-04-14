@@ -1,0 +1,54 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { saveMentionNotifications } from '@/lib/mention'
+
+type Params = { params: Promise<{ id: string }> }
+
+export async function GET(_req: NextRequest, { params }: Params) {
+  const { id } = await params
+  const supabase = createAdminClient()
+  const { data, error } = await supabase
+    .from('suggestion_comments')
+    .select('id, text, created_at, author_id, author:users!author_id(name, nickname)')
+    .eq('suggestion_id', id)
+    .order('created_at', { ascending: true })
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json(data ?? [])
+}
+
+export async function POST(req: NextRequest, { params }: Params) {
+  const session = await getServerSession(authOptions)
+  if (!session?.user?.kakaoId)
+    return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 })
+
+  const { id } = await params
+  const { text } = await req.json()
+  if (!text?.trim())
+    return NextResponse.json({ error: '내용을 입력해주세요.' }, { status: 400 })
+
+  const supabase = createAdminClient()
+  const { data: user } = await supabase
+    .from('users').select('id').eq('kakao_id', session.user.kakaoId).single()
+  if (!user) return NextResponse.json({ error: '유저 없음' }, { status: 404 })
+
+  const { data, error } = await supabase
+    .from('suggestion_comments')
+    .insert({ suggestion_id: id, author_id: user.id, text: text.trim() })
+    .select('id, text, created_at, author_id, author:users!author_id(name, nickname)')
+    .single()
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // @멘션 알림 저장 (실패해도 댓글 저장에 영향 없음)
+  await saveMentionNotifications({
+    text: text.trim(),
+    senderId: user.id,
+    sourceType: 'suggestion_comment',
+    sourceId: id,
+  })
+
+  return NextResponse.json(data)
+}
