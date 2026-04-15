@@ -341,7 +341,7 @@ function EventDetailModal({
         </div>
 
         {/* 어드민 버튼 */}
-        {currentUserId && !editing && (
+        {!editing && (
           <div className="px-5 py-4 border-t border-border flex gap-2 shrink-0">
             <button
               onClick={() => setEditing(true)}
