@@ -15,6 +15,7 @@ type Event = {
   notes: string | null
   event_date: string
   event_time: string | null
+  created_by: string | null
 }
 
 function TrashIcon() {
@@ -340,7 +341,7 @@ function EventDetailModal({
         </div>
 
         {/* 어드민 버튼 */}
-        {isAdmin && !editing && (
+        {(isAdmin || event.created_by === currentUserId) && !editing && (
           <div className="px-5 py-4 border-t border-border flex gap-2 shrink-0">
             <button
               onClick={() => setEditing(true)}

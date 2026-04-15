@@ -9,7 +9,7 @@ const getEvents = unstable_cache(
     const supabase = createAdminClient()
     const { data } = await supabase
       .from('events')
-      .select('id, title, place, notes, event_date, event_time')
+      .select('id, title, place, notes, event_date, event_time, created_by')
       .order('event_date', { ascending: true })
       .limit(100)
     return data ?? []
