@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import ImageUpload from './ImageUpload'
 
 export default function EventNewClient() {
   const router = useRouter()
@@ -10,6 +11,7 @@ export default function EventNewClient() {
   const [notes, setNotes] = useState('')
   const [eventDate, setEventDate] = useState('')
   const [eventTime, setEventTime] = useState('')
+  const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -34,6 +36,7 @@ export default function EventNewClient() {
         notes: notes || null,
         event_date: eventDate,
         event_time: eventTime || null,
+        image_url: imageUrl,
       }),
     })
 
@@ -125,6 +128,10 @@ export default function EventNewClient() {
               rows={3}
               className="w-full text-sm text-gray-800 border border-border rounded-xl px-3 py-2.5 outline-none focus:border-purple-500 transition-colors resize-none"
             />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-muted mb-1.5 block">이미지 첨부</label>
+            <ImageUpload value={imageUrl} onChange={setImageUrl} uploadType="event" />
           </div>
         </section>
 

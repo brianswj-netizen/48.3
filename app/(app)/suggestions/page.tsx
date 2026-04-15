@@ -11,7 +11,7 @@ const getSuggestionsRaw = unstable_cache(
     const [suggestionsRes, likesRes, commentsRes] = await Promise.all([
       supabase
         .from('suggestions')
-        .select('id, title, description, category, status, created_at, author_id, author:users!author_id(name, nickname)')
+        .select('id, title, description, category, status, created_at, author_id, image_url, author:users!author_id(name, nickname)')
         .order('created_at', { ascending: false })
         .limit(100),
       supabase

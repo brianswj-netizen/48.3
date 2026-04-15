@@ -12,7 +12,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
   const { id } = await params
   const body = await req.json()
-  const { title, description, category } = body
+  const { title, description, category, image_url } = body
 
   if (!title?.trim())
     return NextResponse.json({ error: '제목을 입력해주세요.' }, { status: 400 })
@@ -40,7 +40,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
   const { data, error } = await supabase
     .from('suggestions')
-    .update({ title: title.trim(), description: description?.trim() ?? null, category: category ?? null })
+    .update({ title: title.trim(), description: description?.trim() ?? null, category: category ?? null, image_url: image_url ?? null })
     .eq('id', id)
     .select()
     .single()

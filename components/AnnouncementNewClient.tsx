@@ -2,11 +2,13 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import ImageUpload from './ImageUpload'
 
 export default function AnnouncementNewClient() {
   const router = useRouter()
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
+  const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -23,7 +25,7 @@ export default function AnnouncementNewClient() {
     const res = await fetch('/api/announcements', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, content }),
+      body: JSON.stringify({ title, content, image_url: imageUrl }),
     })
 
     const json = await res.json()
@@ -79,6 +81,10 @@ export default function AnnouncementNewClient() {
               className="w-full text-sm text-gray-800 border border-border rounded-xl px-3 py-2.5 resize-none h-48 outline-none focus:border-purple-500 transition-colors"
             />
             <p className="text-xs text-muted text-right mt-1">{content.length}/2000</p>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-muted mb-1.5 block">이미지 첨부</label>
+            <ImageUpload value={imageUrl} onChange={setImageUrl} uploadType="announcement" />
           </div>
         </section>
 

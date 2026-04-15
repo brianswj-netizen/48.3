@@ -25,7 +25,7 @@ export async function PATCH(
   }
 
   const { id } = await params
-  const { title, content } = await req.json()
+  const { title, content, image_url } = await req.json()
 
   if (!title?.trim() || !content?.trim()) {
     return NextResponse.json({ error: '제목과 내용을 입력해주세요.' }, { status: 400 })
@@ -33,7 +33,7 @@ export async function PATCH(
 
   const { error } = await supabase
     .from('announcements')
-    .update({ title: title.trim(), content: content.trim() })
+    .update({ title: title.trim(), content: content.trim(), image_url: image_url ?? null })
     .eq('id', id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

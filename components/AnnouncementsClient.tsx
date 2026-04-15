@@ -3,13 +3,16 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import MentionCommentInput, { type MemberOption } from './MentionCommentInput'
 import MentionText from './MentionText'
+import ImageUpload from './ImageUpload'
 
 type Announcement = {
   id: string
   title: string
   content: string
+  image_url?: string | null
   created_at: string
   author_id?: string | null
   authorName: string
@@ -192,6 +195,7 @@ export default function AnnouncementsClient({
   const [editing, setEditing] = useState<string | null>(null)
   const [editTitle, setEditTitle] = useState('')
   const [editContent, setEditContent] = useState('')
+  const [editImageUrl, setEditImageUrl] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [expanded, setExpanded] = useState<string | null>(
     initialItems.length === 1 ? initialItems[0].id : null
@@ -220,12 +224,14 @@ export default function AnnouncementsClient({
     setEditing(item.id)
     setEditTitle(item.title)
     setEditContent(item.content)
+    setEditImageUrl(item.image_url ?? null)
   }
 
   function cancelEdit() {
     setEditing(null)
     setEditTitle('')
     setEditContent('')
+    setEditImageUrl(null)
   }
 
   async function handleSave(id: string) {
@@ -234,13 +240,13 @@ export default function AnnouncementsClient({
     const res = await fetch(`/api/announcements/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: editTitle, content: editContent }),
+      body: JSON.stringify({ title: editTitle, content: editContent, image_url: editImageUrl }),
     })
     setSaving(false)
     if (res.ok) {
       setItems(prev =>
         prev.map(item =>
-          item.id === id ? { ...item, title: editTitle, content: editContent } : item
+          item.id === id ? { ...item, title: editTitle, content: editContent, image_url: editImageUrl } : item
         )
       )
       cancelEdit()
@@ -333,6 +339,7 @@ export default function AnnouncementsClient({
                       placeholder="내용"
                       className="w-full text-sm text-gray-700 border border-border rounded-xl px-3 py-2 outline-none focus:border-purple-400 transition-colors resize-none leading-relaxed"
                     />
+                    <ImageUpload value={editImageUrl} onChange={setEditImageUrl} uploadType="announcement" />
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleSave(item.id)}
@@ -400,6 +407,11 @@ export default function AnnouncementsClient({
                     {expanded === item.id && (
                       <div className="mt-3 pt-3 border-t border-border/60">
                         <p className="text-xs text-gray-600 leading-relaxed whitespace-pre-wrap">{item.content}</p>
+                        {item.image_url && (
+                          <div className="mt-3 rounded-xl overflow-hidden">
+                            <Image src={item.image_url} alt="첨부 이미지" width={600} height={400} className="w-full object-cover" />
+                          </div>
+                        )}
 
                         {/* 이모지 리액션 바 */}
                         {(() => {

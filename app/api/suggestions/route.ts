@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: '사용자를 찾을 수 없습니다.' }, { status: 404 })
 
   const body = await req.json()
-  const { title, description, category } = body
+  const { title, description, category, image_url } = body
 
   if (!title?.trim()) {
     return NextResponse.json({ error: '제목을 입력해주세요.' }, { status: 400 })
@@ -44,6 +44,7 @@ export async function POST(req: NextRequest) {
       title: title.trim(),
       description: description?.trim() || null,
       category: category || null,
+      image_url: image_url || null,
       author_id: user.id,
       status: 'open',
     })

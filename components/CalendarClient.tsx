@@ -3,8 +3,10 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import MentionCommentInput, { type MemberOption } from './MentionCommentInput'
 import MentionText from './MentionText'
+import ImageUpload from './ImageUpload'
 
 const DAYS = ['일', '월', '화', '수', '목', '금', '토']
 
@@ -16,6 +18,7 @@ type Event = {
   event_date: string
   event_time: string | null
   created_by: string | null
+  image_url: string | null
 }
 
 function TrashIcon() {
@@ -172,6 +175,7 @@ function EventDetailModal({
     event_time: event.event_time ?? '',
     notes: event.notes ?? '',
   })
+  const [editImageUrl, setEditImageUrl] = useState<string | null>(event.image_url)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [saveError, setSaveError] = useState('')
@@ -183,7 +187,7 @@ function EventDetailModal({
       const res = await fetch(`/api/events/${event.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editForm),
+        body: JSON.stringify({ ...editForm, image_url: editImageUrl }),
       })
       const json = await res.json()
       if (res.ok) {
@@ -223,7 +227,7 @@ function EventDetailModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
-      style={{ background: 'rgba(0,0,0,0.45)' }}
+      style={{ background: 'rgba(0,0,0,0.45)', paddingBottom: 'calc(64px + env(safe-area-inset-bottom))' }}
       onClick={onClose}
     >
       <div
@@ -281,6 +285,7 @@ function EventDetailModal({
                 rows={3}
                 className="text-sm border border-border rounded-lg px-3 py-1.5 outline-none resize-none"
               />
+              <ImageUpload value={editImageUrl} onChange={setEditImageUrl} uploadType="event" />
               {saveError && <p className="text-xs text-red-500">{saveError}</p>}
               <div className="flex gap-2">
                 <button
@@ -324,6 +329,11 @@ function EventDetailModal({
                   {event.notes}
                 </div>
               )}
+              {event.image_url && (
+                <div className="mt-1 rounded-xl overflow-hidden">
+                  <Image src={event.image_url} alt="첨부 이미지" width={600} height={400} className="w-full object-cover" />
+                </div>
+              )}
             </div>
           )}
 
@@ -340,8 +350,8 @@ function EventDetailModal({
           </div>
         </div>
 
-        {/* 어드민 버튼 */}
-        {!editing && (
+        {/* 수정/삭제 버튼 (작성자 또는 어드민) */}
+        {!editing && (isAdmin || event.created_by === currentUserId) && (
           <div className="px-5 py-4 border-t border-border flex gap-2 shrink-0">
             <button
               onClick={() => setEditing(true)}

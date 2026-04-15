@@ -21,11 +21,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 })
 
   const body = await req.json()
-  const { title, place, event_date, event_time, notes } = body
+  const { title, place, event_date, event_time, notes, image_url } = body
 
   const { data, error } = await supabase
     .from('events')
-    .update({ title, place: place || null, event_date, event_time: event_time || null, notes: notes || null })
+    .update({ title, place: place || null, event_date, event_time: event_time || null, notes: notes || null, image_url: image_url || null })
     .eq('id', id)
     .select()
     .single()

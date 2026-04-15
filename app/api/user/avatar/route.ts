@@ -48,11 +48,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `업로드 오류: ${uploadError.message}` }, { status: 500 })
   }
 
-  // public URL 우선, 실패 시 signed URL (10년) 사용
-  let avatarUrl: string
+  // public URL 생성 (DB에는 타임스탬프 없이 저장)
+  let storedUrl: string
   const { data: urlData } = supabase.storage.from('Profiles').getPublicUrl(path)
   if (urlData?.publicUrl) {
-    avatarUrl = urlData.publicUrl + '?t=' + Date.now()
+    storedUrl = urlData.publicUrl
   } else {
     const { data: signedData, error: signedErr } = await supabase.storage
       .from('Profiles')
@@ -60,17 +60,19 @@ export async function POST(req: NextRequest) {
     if (signedErr || !signedData?.signedUrl) {
       return NextResponse.json({ error: 'URL 생성 실패. Supabase Storage 버킷 설정을 확인해주세요.' }, { status: 500 })
     }
-    avatarUrl = signedData.signedUrl
+    storedUrl = signedData.signedUrl
   }
 
   const { error: updateError } = await supabase
     .from('users')
-    .update({ avatar_url: avatarUrl })
+    .update({ avatar_url: storedUrl })
     .eq('kakao_id', kakaoId)
 
   if (updateError) {
     return NextResponse.json({ error: updateError.message }, { status: 500 })
   }
 
-  return NextResponse.json({ ok: true, avatar_url: avatarUrl })
+  // 응답에는 캐시 버스팅용 타임스탬프 포함 (즉시 표시용)
+  const displayUrl = storedUrl.includes('?') ? storedUrl + '&t=' + Date.now() : storedUrl + '?t=' + Date.now()
+  return NextResponse.json({ ok: true, avatar_url: displayUrl })
 }

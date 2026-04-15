@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { Toast, useToast } from './Toast'
 import MentionCommentInput, { type MemberOption } from './MentionCommentInput'
 import MentionText from './MentionText'
+import ImageUpload from './ImageUpload'
 
 const CATEGORIES = ['전체', '모임 관련', '앱 개선', '스터디·학습', '콘텐츠·자료', '기타'] as const
 
@@ -28,6 +30,7 @@ type Suggestion = {
   like_count?: number
   liked_by_me?: boolean
   comment_count?: number
+  image_url?: string | null
 }
 
 type Comment = {
@@ -59,6 +62,7 @@ function AddSuggestionModal({ onClose, onSaved }: { onClose: () => void; onSaved
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [category, setCategory] = useState('')
+  const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -70,7 +74,7 @@ function AddSuggestionModal({ onClose, onSaved }: { onClose: () => void; onSaved
     const res = await fetch('/api/suggestions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, description, category: category || null }),
+      body: JSON.stringify({ title, description, category: category || null, image_url: imageUrl }),
     })
     const json = await res.json()
     setSaving(false)
@@ -107,6 +111,7 @@ function AddSuggestionModal({ onClose, onSaved }: { onClose: () => void; onSaved
           <textarea value={description} onChange={e => setDescription(e.target.value)}
             placeholder="내용을 입력해주세요 (선택사항)" maxLength={500}
             className="text-sm border border-border rounded-xl px-3 py-2.5 outline-none focus:border-purple-500 resize-none h-20" />
+          <ImageUpload value={imageUrl} onChange={setImageUrl} uploadType="suggestion" />
         </div>
 
         {/* 고정 버튼 영역 */}
@@ -423,6 +428,11 @@ export default function SuggestionsClient({
                   {/* 제목 + 내용 */}
                   <p className="text-sm font-bold text-gray-900 mt-1">{s.title}</p>
                   {s.description && <p className="text-xs text-muted mt-1 leading-relaxed">{s.description}</p>}
+                  {s.image_url && (
+                    <div className="mt-2 rounded-xl overflow-hidden">
+                      <Image src={s.image_url} alt="첨부 이미지" width={600} height={400} className="w-full object-cover max-h-48" style={{ maxHeight: 192 }} />
+                    </div>
+                  )}
 
                   {/* 하단: 작성자 + 공감 + 의견 + 해결됨 */}
                   <div className="flex items-center justify-between mt-3 gap-2 flex-wrap">
@@ -555,6 +565,11 @@ export default function SuggestionsClient({
                           {/* 제목 + 내용 */}
                           <p className="text-sm font-bold text-gray-900 mt-1">{s.title}</p>
                           {s.description && <p className="text-xs text-muted mt-1 leading-relaxed">{s.description}</p>}
+                          {s.image_url && (
+                            <div className="mt-2 rounded-xl overflow-hidden">
+                              <Image src={s.image_url} alt="첨부 이미지" width={600} height={400} className="w-full object-cover max-h-48" style={{ maxHeight: 192 }} />
+                            </div>
+                          )}
 
                           {/* 하단: 작성자 + 공감 + 의견 + 해결됨 */}
                           <div className="flex items-center justify-between mt-3 gap-2 flex-wrap">

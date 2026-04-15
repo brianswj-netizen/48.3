@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json()
-  const { title, place, notes, event_date, event_time } = body
+  const { title, place, notes, event_date, event_time, image_url } = body
 
   if (!title?.trim() || !event_date) {
     return NextResponse.json({ error: '제목과 날짜를 입력해주세요.' }, { status: 400 })
@@ -47,6 +47,7 @@ export async function POST(req: NextRequest) {
       notes: notes?.trim() || null,
       event_date,
       event_time: event_time || null,
+      image_url: image_url || null,
       created_by: user.id,
     })
 
