@@ -18,7 +18,36 @@ const getEvents = unstable_cache(
   { revalidate: 30, tags: ['events'] }
 )
 
+const getVoteDeadlines = unstable_cache(
+  async () => {
+    const supabase = createAdminClient()
+    const { data } = await supabase
+      .from('votes')
+      .select('id, title, deadline')
+      .not('deadline', 'is', null)
+      .order('deadline', { ascending: true })
+      .limit(50)
+    return data ?? []
+  },
+  ['calendar-votes'],
+  { revalidate: 60, tags: ['votes'] }
+)
+
 export default async function CalendarPage() {
-  const [user, events, members] = await Promise.all([getCurrentUser(), getEvents(), getMentionMembers()])
-  return <CalendarClient events={events} isAdmin={user?.role === 'admin'} currentUserId={user?.id ?? null} currentUserName={user?.name ?? user?.nickname ?? null} members={members} />
+  const [user, events, members, votes] = await Promise.all([
+    getCurrentUser(),
+    getEvents(),
+    getMentionMembers(),
+    getVoteDeadlines(),
+  ])
+  return (
+    <CalendarClient
+      events={events}
+      votes={votes}
+      isAdmin={user?.role === 'admin'}
+      currentUserId={user?.id ?? null}
+      currentUserName={user?.name ?? user?.nickname ?? null}
+      members={members}
+    />
+  )
 }

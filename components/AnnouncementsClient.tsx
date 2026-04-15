@@ -362,11 +362,11 @@ export default function AnnouncementsClient({
                   /* ── 보기 모드 ── */
                   <>
                     {/* 항목 헤더 — 클릭으로 펼치기/접기 */}
-                    <div className="flex items-start justify-between gap-2">
-                      <div
-                        className="flex-1 cursor-pointer"
-                        onClick={() => toggleExpand(item.id)}
-                      >
+                    <div
+                      className="flex items-center justify-between gap-2 cursor-pointer"
+                      onClick={() => toggleExpand(item.id)}
+                    >
+                      <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold text-gray-900 leading-snug">{item.title}</p>
                         <div className="flex items-center gap-2 mt-1">
                           <span className="text-xs text-muted">{item.authorName}</span>
@@ -379,27 +379,26 @@ export default function AnnouncementsClient({
                             <button
                               onClick={e => { e.stopPropagation(); startEdit(item) }}
                               disabled={!!deleting}
-                              className="text-muted hover:text-blue-500 transition-colors p-1 disabled:opacity-40"
+                              className="text-muted hover:text-blue-500 transition-colors p-2 disabled:opacity-40 min-w-[36px] min-h-[36px] flex items-center justify-center"
                             >
                               <PencilIcon />
                             </button>
                             <button
                               onClick={e => { e.stopPropagation(); handleDelete(item.id) }}
                               disabled={deleting === item.id}
-                              className="text-muted hover:text-red-500 transition-colors p-1 disabled:opacity-40"
+                              className="text-muted hover:text-red-500 transition-colors p-2 disabled:opacity-40 min-w-[36px] min-h-[36px] flex items-center justify-center"
                             >
                               <TrashIcon />
                             </button>
                           </>
                         )}
-                        <button
-                          className="flex items-center justify-center w-8 h-8 rounded-lg text-muted hover:bg-gray-100 transition-all duration-200"
+                        <div
+                          className="flex items-center justify-center min-w-[44px] min-h-[44px] rounded-lg text-muted hover:bg-gray-100 transition-all duration-200 text-xl"
                           style={{ transform: expanded === item.id ? 'rotate(180deg)' : 'rotate(0deg)' }}
-                          onClick={() => toggleExpand(item.id)}
                           aria-label="펼치기/접기"
                         >
                           ⌄
-                        </button>
+                        </div>
                       </div>
                     </div>
 

@@ -134,7 +134,7 @@ export default async function HomePage() {
       <div className="px-4 py-4 flex flex-col gap-4">
 
         {/* 알림 */}
-        <NotificationsSection notifications={unreadMentions as any} />
+        <NotificationsSection notifications={unreadMentions as any} voteAlerts={activeVotes} />
 
         {/* 공지사항 */}
         <section>

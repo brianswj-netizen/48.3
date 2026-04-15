@@ -21,6 +21,20 @@ type Event = {
   image_url: string | null
 }
 
+type VoteDeadline = {
+  id: string
+  title: string
+  deadline: string | null
+}
+
+function ddayLabel(deadline: string | null) {
+  if (!deadline) return null
+  const diff = Math.ceil((new Date(deadline).getTime() - Date.now()) / 86400000)
+  if (diff < 0) return '마감'
+  if (diff === 0) return 'D-Day'
+  return `D-${diff}`
+}
+
 function TrashIcon() {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
@@ -226,7 +240,7 @@ function EventDetailModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+      className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center"
       style={{ background: 'rgba(0,0,0,0.45)', paddingBottom: 'calc(64px + env(safe-area-inset-bottom))' }}
       onClick={onClose}
     >
@@ -377,12 +391,14 @@ function EventDetailModal({
 
 export default function CalendarClient({
   events: initialEvents,
+  votes = [],
   isAdmin,
   currentUserId,
   currentUserName,
   members = [],
 }: {
   events: Event[]
+  votes?: VoteDeadline[]
   isAdmin: boolean
   currentUserId?: string | null
   currentUserName?: string | null
@@ -413,6 +429,16 @@ export default function CalendarClient({
       .map((e) => new Date(e.event_date).getDate())
   )
 
+  const voteDays = new Set(
+    votes
+      .filter((v) => {
+        if (!v.deadline) return false
+        const d = new Date(v.deadline)
+        return d.getFullYear() === year && d.getMonth() === month
+      })
+      .map((v) => new Date(v.deadline!).getDate())
+  )
+
   const monthEvents = events
     .filter((e) => {
       const d = new Date(e.event_date)
@@ -421,6 +447,16 @@ export default function CalendarClient({
       return true
     })
     .sort((a, b) => a.event_date.localeCompare(b.event_date))
+
+  const monthVotes = votes
+    .filter((v) => {
+      if (!v.deadline) return false
+      const d = new Date(v.deadline)
+      if (d.getFullYear() !== year || d.getMonth() !== month) return false
+      if (selectedDay !== null && d.getDate() !== selectedDay) return false
+      return true
+    })
+    .sort((a, b) => (a.deadline ?? '').localeCompare(b.deadline ?? ''))
 
   const pastEvents = events
     .filter(e => e.event_date < todayStr)
@@ -513,6 +549,7 @@ export default function CalendarClient({
           {cells.map((day, i) => {
             const isToday = day === today.getDate() && year === today.getFullYear() && month === today.getMonth()
             const hasEvent = day !== null && eventDays.has(day)
+            const hasVote = day !== null && voteDays.has(day)
             const isSelected = day !== null && selectedDay === day
             return (
               <div
@@ -537,12 +574,14 @@ export default function CalendarClient({
                     >
                       {day}
                     </span>
-                    {hasEvent && (
-                      <span
-                        className="w-1 h-1 rounded-full -mt-0.5"
-                        style={{ background: 'var(--purple)' }}
-                      />
-                    )}
+                    <div className="flex gap-0.5 -mt-0.5">
+                      {hasEvent && (
+                        <span className="w-1 h-1 rounded-full" style={{ background: 'var(--purple)' }} />
+                      )}
+                      {hasVote && (
+                        <span className="w-1 h-1 rounded-full" style={{ background: '#F97316' }} />
+                      )}
+                    </div>
                   </>
                 ) : null}
               </div>
@@ -559,7 +598,41 @@ export default function CalendarClient({
             <button onClick={() => setSelectedDay(null)} className="ml-2 text-purple-400 font-normal">전체보기</button>
           )}
         </p>
-        {monthEvents.length === 0 ? (
+        {monthVotes.map((vote) => {
+          const d = new Date(vote.deadline!)
+          const dday = ddayLabel(vote.deadline)
+          return (
+            <Link key={`vote-${vote.id}`} href="/votes">
+              <div
+                className="bg-white rounded-[14px] px-4 py-3 flex items-start gap-4 cursor-pointer transition-colors hover:bg-orange-50 active:bg-orange-100"
+                style={{ border: '0.5px solid #FED7AA' }}
+              >
+                <div className="flex flex-col items-center min-w-[36px]">
+                  <span className="text-[11px] font-medium text-muted leading-none">{d.getMonth() + 1}월</span>
+                  <span className="text-2xl font-black leading-tight" style={{ color: '#F97316' }}>
+                    {d.getDate()}
+                  </span>
+                  <span className="text-[9px] leading-none" style={{ color: '#F97316' }}>마감</span>
+                </div>
+                <div className="flex-1 pt-0.5 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs">🗳️</span>
+                    <p className="text-sm font-semibold text-gray-900 truncate">{vote.title}</p>
+                  </div>
+                  <p className="text-xs text-muted mt-0.5">투표 마감일</p>
+                </div>
+                {dday && (
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0 mt-1"
+                    style={{ background: '#FFF7ED', color: '#F97316' }}>
+                    {dday}
+                  </span>
+                )}
+                <span className="text-muted text-lg shrink-0 pt-1">›</span>
+              </div>
+            </Link>
+          )
+        })}
+        {monthEvents.length === 0 && monthVotes.length === 0 ? (
           <p className="text-sm text-muted text-center py-8">이번 달 일정이 없습니다.</p>
         ) : (
           monthEvents.map((event) => (
