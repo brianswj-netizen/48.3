@@ -15,7 +15,7 @@ const getEvents = unstable_cache(
     return data ?? []
   },
   ['calendar-events'],
-  { revalidate: 300, tags: ['events'] }
+  { revalidate: 30, tags: ['events'] }
 )
 
 export default async function CalendarPage() {
