@@ -393,11 +393,14 @@ export default function AnnouncementsClient({
                           </>
                         )}
                         <div
-                          className="flex items-center justify-center min-w-[44px] min-h-[44px] rounded-lg text-muted hover:bg-gray-100 transition-all duration-200 text-xl"
-                          style={{ transform: expanded === item.id ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                          className="flex items-center justify-center min-w-[44px] min-h-[44px] rounded-lg transition-all duration-200 text-base font-bold"
+                          style={{
+                            transform: expanded === item.id ? 'rotate(180deg)' : 'rotate(0deg)',
+                            color: '#E07B54',
+                          }}
                           aria-label="펼치기/접기"
                         >
-                          ⌄
+                          ▼
                         </div>
                       </div>
                     </div>
@@ -415,19 +418,23 @@ export default function AnnouncementsClient({
                         {/* 이모지 리액션 바 */}
                         {(() => {
                           const isSelf = !!(currentUserId && item.author_id && currentUserId === item.author_id)
+                          const hasReactions = EMOJIS.some(e => (reactions[e]?.count ?? 0) > 0)
+                          // 본인 글이고 리액션도 없으면 바 자체를 숨김
+                          if (isSelf && !hasReactions) return null
                           return (
                             <div className="flex items-center gap-2 mt-3 flex-wrap">
                               {EMOJIS.map(emoji => {
                                 const r = reactions[emoji]
                                 const reacted = r?.reacted ?? false
                                 const count = r?.count ?? 0
+                                // 본인 글: 리액션 있는 것만 표시 (클릭 불가)
+                                if (isSelf && count === 0) return null
                                 return (
                                   <button
                                     key={emoji}
                                     onClick={() => !isSelf && handleReact(item.id, emoji)}
                                     disabled={isSelf}
-                                    title={isSelf ? '본인 글에는 리액션할 수 없습니다' : undefined}
-                                    className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                    className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold transition-colors disabled:cursor-default"
                                     style={
                                       reacted
                                         ? { background: '#E07B54', color: 'white' }
