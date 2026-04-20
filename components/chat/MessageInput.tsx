@@ -160,7 +160,7 @@ export default function MessageInput({ onSend, members = [], replyTo, onCancelRe
         const name = (m.name ?? '').toLowerCase()
         const nick = (m.nickname ?? '').toLowerCase()
         return name.includes(q) || nick.includes(q)
-      }).slice(0, 5)
+      }).slice(0, 25)
     : []
 
   return (
