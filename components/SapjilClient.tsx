@@ -16,6 +16,17 @@ type Props = { initialPosts: Post[]; currentUserId: string; isAdmin?: boolean }
 
 const QUICK_EMOJIS = ['❤️', '😂', '👍', '🙏', '🔥', '😮']
 
+function parseComment(text: string): { textPart: string; imageUrls: string[] } {
+  const lines = text.split('\n')
+  const imageUrls: string[] = []
+  const textLines: string[] = []
+  for (const line of lines) {
+    if (line.startsWith('__IMAGE__:')) imageUrls.push(line.slice(10).trim())
+    else textLines.push(line)
+  }
+  return { textPart: textLines.join('\n').trim(), imageUrls }
+}
+
 function formatDate(iso: string) {
   const d = new Date(iso), diff = Date.now() - d.getTime()
   if (diff < 60_000) return '방금'
@@ -31,9 +42,13 @@ function CommentDrawer({ postId, currentUserId, isAdmin, isOpen, onClose, onCoun
 }) {
   const [comments, setComments] = useState<Comment[]>([])
   const [text, setText] = useState('')
+  const [imageUrl, setImageUrl] = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
   const [loading, setLoading] = useState(false)
   const [sending, setSending] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
     if (!isOpen) return
@@ -47,17 +62,38 @@ function CommentDrawer({ postId, currentUserId, isAdmin, isOpen, onClose, onCoun
     if (comments.length > 0) setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
   }, [comments.length])
 
+  function autoResize(el: HTMLTextAreaElement) {
+    el.style.height = 'auto'
+    el.style.height = Math.min(el.scrollHeight, 120) + 'px'
+  }
+
+  async function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    const fd = new FormData()
+    fd.append('file', file)
+    fd.append('type', 'sapjil')
+    const res = await fetch('/api/upload', { method: 'POST', body: fd })
+    if (res.ok) { const { url } = await res.json(); setImageUrl(url) }
+    setUploading(false)
+    if (fileRef.current) fileRef.current.value = ''
+  }
+
   async function submit() {
-    if (!text.trim() || sending) return
+    if ((!text.trim() && !imageUrl) || sending) return
     setSending(true)
+    const combined = imageUrl ? `${text.trim()}\n__IMAGE__:${imageUrl}`.trim() : text.trim()
     const res = await fetch(`/api/sapjil/${postId}/comments`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: text.trim() }),
+      body: JSON.stringify({ text: combined }),
     })
     if (res.ok) {
       const c = await res.json()
       setComments(p => { const n = [...p, c]; onCountChange?.(n.length); return n })
       setText('')
+      setImageUrl(null)
+      if (textareaRef.current) { textareaRef.current.style.height = 'auto' }
     }
     setSending(false)
   }
@@ -91,6 +127,7 @@ function CommentDrawer({ postId, currentUserId, isAdmin, isOpen, onClose, onCoun
           ) : comments.map(c => {
             const name = c.user?.name ?? c.user?.nickname ?? '알 수 없음'
             const isMine = c.user?.id === currentUserId
+            const { textPart, imageUrls } = parseComment(c.text)
             return (
               <div key={c.id} className="flex items-start gap-2.5">
                 <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-bold"
@@ -103,19 +140,57 @@ function CommentDrawer({ postId, currentUserId, isAdmin, isOpen, onClose, onCoun
                       <button onClick={() => del(c.id)} className="text-[10px] text-red-300 hover:text-red-500 ml-auto">삭제</button>
                     )}
                   </div>
-                  <p className="text-sm text-gray-700 leading-relaxed mt-0.5">{c.text}</p>
+                  {textPart && <p className="text-sm text-gray-700 leading-relaxed mt-0.5 whitespace-pre-wrap">{textPart}</p>}
+                  {imageUrls.map((url, i) => (
+                    <img key={i} src={url} alt="첨부 이미지"
+                      className="mt-1.5 rounded-xl object-cover cursor-pointer"
+                      style={{ maxHeight: 200, maxWidth: '100%', border: '1px solid var(--border)' }}
+                      onClick={() => window.open(url, '_blank')}
+                    />
+                  ))}
                 </div>
               </div>
             )
           })}
           <div ref={bottomRef} />
         </div>
-        <div className="px-4 py-3 border-t border-border flex items-center gap-2 shrink-0">
-          <input value={text} onChange={e => setText(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit() } }}
-            placeholder="댓글을 입력하세요..." className="flex-1 bg-gray-50 rounded-full px-4 py-2.5 text-sm outline-none"
-            style={{ border: '1px solid var(--border)' }} />
-          <button onClick={submit} disabled={!text.trim() || sending}
+        {/* Image preview */}
+        {imageUrl && (
+          <div className="px-4 pt-2 shrink-0">
+            <div className="relative inline-block">
+              <img src={imageUrl} alt="미리보기" className="h-16 w-auto rounded-xl object-cover" style={{ border: '1px solid var(--border)' }} />
+              <button onClick={() => setImageUrl(null)}
+                className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-gray-600 text-white text-[10px] flex items-center justify-center">✕</button>
+            </div>
+          </div>
+        )}
+        <div className="px-4 py-3 border-t border-border flex items-end gap-2 shrink-0">
+          {/* Image attach button */}
+          <button onClick={() => fileRef.current?.click()} disabled={uploading}
+            className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 disabled:opacity-40"
+            style={{ background: '#F3F4F6', border: '1px solid var(--border)' }}
+            title="이미지 첨부">
+            {uploading ? (
+              <span className="text-xs">⏳</span>
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" />
+                <polyline points="21 15 16 10 5 21" />
+              </svg>
+            )}
+          </button>
+          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageSelect} />
+          <textarea
+            ref={textareaRef}
+            value={text}
+            onChange={e => { setText(e.target.value); autoResize(e.target) }}
+            onKeyDown={e => { if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); submit() } }}
+            placeholder="댓글을 입력하세요… (Ctrl+Enter 전송)"
+            rows={1}
+            className="flex-1 bg-gray-50 rounded-2xl px-4 py-2.5 text-sm outline-none resize-none leading-relaxed"
+            style={{ border: '1px solid var(--border)', minHeight: 40, maxHeight: 120, overflowY: 'auto' }}
+          />
+          <button onClick={submit} disabled={(!text.trim() && !imageUrl) || sending}
             className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 disabled:opacity-40"
             style={{ background: 'var(--purple)' }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M2 21L23 12L2 3V10L17 12L2 14V21Z" /></svg>

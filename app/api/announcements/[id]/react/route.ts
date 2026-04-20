@@ -5,6 +5,28 @@ import { createAdminClient } from '@/lib/supabase/admin'
 
 type Params = { params: Promise<{ id: string }> }
 
+// GET: 이모지별 반응한 사람 목록
+export async function GET(_req: NextRequest, { params }: Params) {
+  const { id } = await params
+  const supabase = createAdminClient()
+
+  const { data } = await supabase
+    .from('announcement_reactions')
+    .select('emoji, user:users!user_id(name, nickname)')
+    .eq('announcement_id', id)
+
+  if (!data) return NextResponse.json({})
+
+  const result: Record<string, string[]> = {}
+  for (const r of data) {
+    const u = Array.isArray(r.user) ? r.user[0] : r.user
+    const name = (u as any)?.name ?? (u as any)?.nickname ?? '?'
+    if (!result[r.emoji]) result[r.emoji] = []
+    result[r.emoji].push(name)
+  }
+  return NextResponse.json(result)
+}
+
 export async function POST(req: NextRequest, { params }: Params) {
   const session = await getServerSession(authOptions)
   if (!session?.user?.kakaoId) return NextResponse.json({ error: '로그인 필요' }, { status: 401 })

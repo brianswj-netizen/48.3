@@ -147,7 +147,13 @@ export default function VotesClient({ votes: initialVotes, isAdmin }: { votes: V
   async function handleDeleteVote(voteId: string) {
     if (!confirm('투표를 삭제할까요?')) return
     const res = await fetch(`/api/votes/${voteId}`, { method: 'DELETE' })
-    if (res.ok) setVotes(prev => prev.filter(v => v.id !== voteId))
+    if (res.ok) {
+      setVotes(prev => prev.filter(v => v.id !== voteId))
+      router.refresh()
+    } else {
+      const json = await res.json().catch(() => ({}))
+      alert(json.error ?? '삭제에 실패했습니다.')
+    }
   }
 
   async function handleVote(voteId: string, optionId: string) {

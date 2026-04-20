@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUser } from '@/lib/user'
 import ChatRoomClient from '@/components/chat/ChatRoomClient'
+import MemberListButton from '@/components/chat/MemberListButton'
 import type { Message } from '@/lib/types'
 import Link from 'next/link'
 import { ChevronLeft } from 'lucide-react'
@@ -16,16 +17,22 @@ async function getRoom(roomId: string) {
   return data
 }
 
-async function getMembers() {
+
+async function getRoomMembers(room: { type: string; subgroup_id: string | null }) {
   const supabase = createAdminClient()
-  const { data } = await supabase
+  let query = supabase
     .from('users')
-    .select('id, name, nickname')
-    .not('name', 'is', null)
+    .select('id, name, nickname, avatar_url, subgroup, role')
+    .eq('status', 'approved')
     .not('kakao_id', 'like', 'pre_%')
-    .neq('name', '방수진')
-    .neq('name', '문지연')
-    .neq('name', '최유미')
+    .not('kakao_id', 'like', 'system_%')
+
+  // 소모임방이면 해당 소모임 멤버 + 관리자만
+  if (room.type === 'subgroup' && room.subgroup_id) {
+    query = query.or(`subgroup.eq.${room.subgroup_id},role.eq.admin`)
+  }
+
+  const { data } = await query.order('role', { ascending: false }).order('name')
   return data ?? []
 }
 
@@ -39,10 +46,10 @@ async function getInitialMessages(roomId: string): Promise<Message[]> {
     `)
     .eq('room_id', roomId)
     .eq('deleted', false)
-    .order('created_at', { ascending: true })
-    .limit(30)
+    .order('created_at', { ascending: false })
+    .limit(50)
 
-  return (data ?? []) as unknown as Message[]
+  return ((data ?? []).reverse()) as unknown as Message[]
 }
 
 const ROOM_EMOJI: Record<string, string> = {
@@ -51,12 +58,13 @@ const ROOM_EMOJI: Record<string, string> = {
 
 export default async function ChatRoomPage({ params }: { params: Promise<{ roomId: string }> }) {
   const { roomId } = await params
-  const [user, room, initialMessages, members] = await Promise.all([
+  const [user, room, initialMessages] = await Promise.all([
     getCurrentUser(),
     getRoom(roomId),
     getInitialMessages(roomId),
-    getMembers(),
   ])
+
+  const roomMembers = room ? await getRoomMembers(room) : []
 
   // 이 방의 멘션 알림 읽음 처리
   if (user) {
@@ -103,6 +111,7 @@ export default async function ChatRoomPage({ params }: { params: Promise<{ roomI
         <div className="flex-1 min-w-0">
           <h1 className="font-bold text-gray-900 text-base leading-tight">{room.name}</h1>
         </div>
+        <MemberListButton members={roomMembers} roomName={room.name} />
       </header>
 
       {/* 채팅 (실시간) */}
@@ -113,7 +122,7 @@ export default async function ChatRoomPage({ params }: { params: Promise<{ roomI
           initialMessages={initialMessages}
           currentUserId={user.id}
           isAdmin={user.role === 'admin'}
-          members={members}
+          members={roomMembers}
         />
       </div>
     </div>

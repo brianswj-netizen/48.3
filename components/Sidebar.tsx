@@ -96,6 +96,29 @@ const navItems = [
     ),
   },
   {
+    href: '/creatures',
+    label: '나의 피조물',
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+        <ellipse cx="12" cy="10" rx="7" ry="5" stroke="currentColor" strokeWidth="1.8" />
+        <path d="M5 10C5 10 3 14 3 17C3 19 7 21 12 21C17 21 21 19 21 17C21 14 19 10 19 10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        <circle cx="9" cy="9" r="1.2" fill="currentColor" />
+        <circle cx="15" cy="9" r="1.2" fill="currentColor" />
+      </svg>
+    ),
+  },
+  {
+    href: '/sapjil',
+    label: '삽질기',
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+        <path d="M14.5 2.5L21.5 9.5L10 21L3 14L14.5 2.5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+        <path d="M3 14L2 22L10 21" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+        <path d="M8 8L16 16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
     href: '/evaluator',
     label: 'AI 평가관',
     icon: (

@@ -10,6 +10,9 @@ type PendingUser = {
   avatar_url: string | null
   status: string
   created_at: string
+  kakao_id?: string | null
+  subgroup?: string | null
+  role?: string | null
 }
 
 type PreMember = {
@@ -175,11 +178,137 @@ function PreMembersTab() {
   )
 }
 
+function AllUsersTab() {
+  const [allUsers, setAllUsers] = useState<PendingUser[]>([])
+  const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState<'all' | 'approved' | 'pending' | 'rejected' | 'removed'>('all')
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetch('/api/admin/users?all=true')
+      .then(r => r.json())
+      .then(d => { setAllUsers(Array.isArray(d) ? d : []); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [])
+
+  async function handleStatusChange(id: string, status: string) {
+    setActionLoading(id)
+    const res = await fetch(`/api/admin/users/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    })
+    if (res.ok) {
+      setAllUsers(prev => prev.map(u => u.id === id ? { ...u, status } : u))
+    }
+    setActionLoading(null)
+  }
+
+  const STATUS_LABELS: Record<string, { label: string; color: string; bg: string }> = {
+    approved: { label: '승인됨',   color: '#059669', bg: '#ECFDF5' },
+    pending:  { label: '대기 중',  color: '#D97706', bg: '#FFFBEB' },
+    rejected: { label: '거절됨',   color: '#DC2626', bg: '#FEF2F2' },
+    removed:  { label: '탈퇴',     color: '#6B7280', bg: '#F3F4F6' },
+  }
+
+  const filtered = allUsers.filter(u => {
+    if (u.kakao_id?.startsWith('pre_') || u.kakao_id?.startsWith('system_')) return false
+    if (filter === 'all') return true
+    return u.status === filter
+  })
+
+  const counts = allUsers.reduce((acc, u) => {
+    if (u.kakao_id?.startsWith('pre_') || u.kakao_id?.startsWith('system_')) return acc
+    acc[u.status] = (acc[u.status] ?? 0) + 1
+    return acc
+  }, {} as Record<string, number>)
+
+  function formatDate(iso: string) {
+    return new Date(iso).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', year: '2-digit' })
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {/* 상태 필터 탭 */}
+      <div className="flex gap-1.5 flex-wrap">
+        {([['all', '전체'], ['approved', '승인됨'], ['pending', '대기 중'], ['rejected', '거절됨'], ['removed', '탈퇴']] as const).map(([key, label]) => (
+          <button key={key} onClick={() => setFilter(key)}
+            className="px-2.5 py-1 rounded-full text-[11px] font-semibold transition-colors"
+            style={filter === key
+              ? { background: 'var(--purple)', color: 'white' }
+              : { background: '#F3F4F6', color: '#6B7280' }}>
+            {label}{key !== 'all' && counts[key] ? ` (${counts[key]})` : key === 'all' ? ` (${Object.values(counts).reduce((a, b) => a + b, 0)})` : ''}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <p className="text-sm text-muted text-center py-8">불러오는 중...</p>
+      ) : filtered.length === 0 ? (
+        <p className="text-sm text-muted text-center py-8">해당 상태의 멤버가 없습니다</p>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {filtered.map(u => {
+            const displayName = u.name ?? u.nickname ?? '이름 미입력'
+            const statusInfo = STATUS_LABELS[u.status] ?? { label: u.status, color: '#6B7280', bg: '#F3F4F6' }
+            const isLoading = actionLoading === u.id
+            return (
+              <div key={u.id} className="bg-white rounded-[14px] px-4 py-3 flex items-center gap-3"
+                style={{ border: '0.5px solid var(--border)' }}>
+                <div className="w-9 h-9 rounded-full shrink-0 flex items-center justify-center text-sm font-bold text-white"
+                  style={{ background: u.avatar_url ? undefined : 'var(--purple)', backgroundImage: u.avatar_url ? `url(${u.avatar_url})` : undefined, backgroundSize: 'cover' }}>
+                  {!u.avatar_url && displayName.charAt(0)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-sm font-bold text-gray-900">{displayName}</span>
+                    {u.role === 'admin' && <span className="text-[9px] font-bold px-1 py-0.5 rounded text-white" style={{ background: 'var(--purple)' }}>운영자</span>}
+                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style={{ background: statusInfo.bg, color: statusInfo.color }}>
+                      {statusInfo.label}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-muted mt-0.5">
+                    {[u.subgroup, formatDate(u.created_at)].filter(Boolean).join(' · ')}
+                  </p>
+                </div>
+                {/* 상태 변경 */}
+                {u.status !== 'approved' && u.status !== 'removed' && (
+                  <button onClick={() => handleStatusChange(u.id, 'approved')} disabled={isLoading}
+                    className="text-[10px] font-bold px-2 py-1 rounded-lg text-white shrink-0 disabled:opacity-40"
+                    style={{ background: '#059669' }}>
+                    {isLoading ? '...' : '승인'}
+                  </button>
+                )}
+                {u.status === 'approved' && u.role !== 'admin' && (
+                  <button onClick={() => { if (confirm(`${displayName}님을 탈퇴 처리할까요?`)) handleStatusChange(u.id, 'removed') }}
+                    disabled={isLoading}
+                    className="text-[10px] font-bold px-2 py-1 rounded-lg shrink-0 disabled:opacity-40"
+                    style={{ background: '#F3F4F6', color: '#6B7280' }}>
+                    {isLoading ? '...' : '탈퇴'}
+                  </button>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function AdminClient({ pendingUsers: initial }: { pendingUsers: PendingUser[] }) {
   const router = useRouter()
   const [users, setUsers] = useState(initial)
   const [loading, setLoading] = useState<string | null>(null)
-  const [tab, setTab] = useState<'approve' | 'pre'>('approve')
+  const [tab, setTab] = useState<'approve' | 'pre' | 'all'>('approve')
+  const [preCount, setPreCount] = useState(0)
+
+  useEffect(() => {
+    fetch('/api/admin/pre-members')
+      .then(r => r.json())
+      .then(d => { if (Array.isArray(d)) setPreCount(d.length) })
+      .catch(() => {})
+  }, [])
 
   async function handleApprove(id: string) {
     const user = users.find(u => u.id === id)
@@ -225,10 +354,10 @@ export default function AdminClient({ pendingUsers: initial }: { pendingUsers: P
       </header>
 
       {/* 탭 */}
-      <div className="flex border-b border-border bg-white px-5">
+      <div className="flex border-b border-border bg-white px-5 gap-1">
         <button
           onClick={() => setTab('approve')}
-          className={`py-3 text-sm font-semibold mr-4 border-b-2 transition-colors ${tab === 'approve' ? 'border-purple-500 text-purple-600' : 'border-transparent text-muted'}`}
+          className={`py-3 text-sm font-semibold mr-3 border-b-2 transition-colors ${tab === 'approve' ? 'border-purple-500 text-purple-600' : 'border-transparent text-muted'}`}
         >
           가입 승인
           {users.length > 0 && (
@@ -238,15 +367,23 @@ export default function AdminClient({ pendingUsers: initial }: { pendingUsers: P
           )}
         </button>
         <button
+          onClick={() => setTab('all')}
+          className={`py-3 text-sm font-semibold mr-3 border-b-2 transition-colors ${tab === 'all' ? 'border-purple-500 text-purple-600' : 'border-transparent text-muted'}`}
+        >
+          전체 현황
+        </button>
+        <button
           onClick={() => setTab('pre')}
           className={`py-3 text-sm font-semibold border-b-2 transition-colors ${tab === 'pre' ? 'border-purple-500 text-purple-600' : 'border-transparent text-muted'}`}
         >
-          사전 프로필
+          가입 전{preCount > 0 ? ` (${preCount})` : ''}
         </button>
       </div>
 
       <div className="px-4 py-4">
-        {tab === 'approve' ? (
+        {tab === 'all' ? (
+          <AllUsersTab />
+        ) : tab === 'approve' ? (
           <div className="flex flex-col gap-2">
             {users.length === 0 ? (
               <div className="text-center py-16">
@@ -303,6 +440,7 @@ export default function AdminClient({ pendingUsers: initial }: { pendingUsers: P
         ) : (
           <PreMembersTab />
         )}
+
       </div>
     </div>
   )

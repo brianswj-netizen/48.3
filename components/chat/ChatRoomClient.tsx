@@ -40,6 +40,7 @@ export default function ChatRoomClient({ roomId, roomName, initialMessages, curr
   const [messages, setMessages] = useState<Message[]>(initialMessages)
   const [fontSize, setFontSize] = useState<'normal' | 'large'>('normal')
   const [reactionsMap, setReactionsMap] = useState<Record<string, ReactionData[]>>({})
+  const [replyTo, setReplyTo] = useState<{ senderName: string; text: string } | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const supabase = createClient()
 
@@ -182,6 +183,12 @@ export default function ChatRoomClient({ roomId, roomName, initialMessages, curr
                 onDelete={handleDeleteMessage}
                 onEdit={handleEditMessage}
                 onReaction={(emoji) => handleReaction(msg.id, emoji, msg.sender_id)}
+                onReply={(m) => {
+                  const senderRaw = m.sender as any
+                  const sender = Array.isArray(senderRaw) ? senderRaw[0] : senderRaw
+                  const name = sender?.name ?? sender?.nickname ?? '상대방'
+                  setReplyTo({ senderName: name, text: m.text })
+                }}
               />
             </div>
           )
@@ -189,7 +196,13 @@ export default function ChatRoomClient({ roomId, roomName, initialMessages, curr
         <div ref={bottomRef} />
       </div>
 
-      <MessageInput roomId={roomId} onSend={handleSend} members={members} />
+      <MessageInput
+        roomId={roomId}
+        onSend={handleSend}
+        members={members}
+        replyTo={replyTo}
+        onCancelReply={() => setReplyTo(null)}
+      />
     </div>
   )
 }

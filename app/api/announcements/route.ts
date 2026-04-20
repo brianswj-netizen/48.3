@@ -34,15 +34,18 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json()
-  const { title, content, image_url } = body
+  const { title, content, image_url, ann_type } = body
 
   if (!title?.trim() || !content?.trim()) {
     return NextResponse.json({ error: '제목과 내용을 입력해주세요.' }, { status: 400 })
   }
 
+  const validTypes = ['general', 'ai_news', 'tip']
+  const type = validTypes.includes(ann_type) ? ann_type : 'general'
+
   const { error } = await supabase
     .from('announcements')
-    .insert({ title: title.trim(), content: content.trim(), image_url: image_url || null, created_by: user.id })
+    .insert({ title: title.trim(), content: content.trim(), image_url: image_url || null, created_by: user.id, ann_type: type })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   revalidateTag('announcements', {})

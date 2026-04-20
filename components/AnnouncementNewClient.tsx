@@ -8,6 +8,7 @@ export default function AnnouncementNewClient() {
   const router = useRouter()
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
+  const [annType, setAnnType] = useState('general')
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -25,7 +26,7 @@ export default function AnnouncementNewClient() {
     const res = await fetch('/api/announcements', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, content, image_url: imageUrl }),
+      body: JSON.stringify({ title, content, image_url: imageUrl, ann_type: annType }),
     })
 
     const json = await res.json()
@@ -60,6 +61,28 @@ export default function AnnouncementNewClient() {
         )}
 
         <section className="bg-white rounded-[14px] p-4 flex flex-col gap-3" style={{ border: '0.5px solid var(--border)' }}>
+          <div>
+            <label className="text-xs font-semibold text-muted mb-1.5 block">종류</label>
+            <div className="flex gap-2">
+              {([
+                { value: 'general', label: '일반 공지' },
+                { value: 'ai_news', label: '🤖 AI 뉴스' },
+                { value: 'tip', label: '💡 꿀팁' },
+              ] as const).map(opt => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setAnnType(opt.value)}
+                  className="flex-1 py-2 rounded-xl text-xs font-semibold border transition-colors"
+                  style={annType === opt.value
+                    ? { background: 'var(--purple)', color: 'white', borderColor: 'var(--purple)' }
+                    : { background: 'white', color: 'var(--muted)', borderColor: 'var(--border)' }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
           <div>
             <label className="text-xs font-semibold text-muted mb-1.5 block">제목</label>
             <input

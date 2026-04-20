@@ -439,21 +439,26 @@ export default function CalendarClient({
       .map((v) => new Date(v.deadline!).getDate())
   )
 
-  const monthEvents = events
+  // 다가올 일정: 오늘 이후 전체 (날짜 선택 시 해당 날짜만)
+  const upcomingEvents = events
     .filter((e) => {
-      const d = new Date(e.event_date)
-      if (d.getFullYear() !== year || d.getMonth() !== month) return false
-      if (selectedDay !== null && d.getDate() !== selectedDay) return false
+      if (e.event_date < todayStr) return false
+      if (selectedDay !== null) {
+        const d = new Date(e.event_date)
+        return d.getFullYear() === year && d.getMonth() === month && d.getDate() === selectedDay
+      }
       return true
     })
     .sort((a, b) => a.event_date.localeCompare(b.event_date))
 
-  const monthVotes = votes
+  const upcomingVotes = votes
     .filter((v) => {
       if (!v.deadline) return false
-      const d = new Date(v.deadline)
-      if (d.getFullYear() !== year || d.getMonth() !== month) return false
-      if (selectedDay !== null && d.getDate() !== selectedDay) return false
+      if (v.deadline < todayStr) return false
+      if (selectedDay !== null) {
+        const d = new Date(v.deadline)
+        return d.getFullYear() === year && d.getMonth() === month && d.getDate() === selectedDay
+      }
       return true
     })
     .sort((a, b) => (a.deadline ?? '').localeCompare(b.deadline ?? ''))
@@ -590,15 +595,15 @@ export default function CalendarClient({
         </div>
       </div>
 
-      {/* 이번 달 일정 목록 */}
+      {/* 다가올 일정 목록 */}
       <div className="px-4 mt-4 flex flex-col gap-2 pb-2">
         <p className="text-xs font-semibold text-muted">
-          {selectedDay ? `${month + 1}월 ${selectedDay}일 일정` : `${month + 1}월 일정`}
+          {selectedDay ? `${month + 1}월 ${selectedDay}일 일정` : '다가올 일정'}
           {selectedDay && (
             <button onClick={() => setSelectedDay(null)} className="ml-2 text-purple-400 font-normal">전체보기</button>
           )}
         </p>
-        {monthVotes.map((vote) => {
+        {upcomingVotes.map((vote) => {
           const d = new Date(vote.deadline!)
           const dday = ddayLabel(vote.deadline)
           return (
@@ -632,10 +637,12 @@ export default function CalendarClient({
             </Link>
           )
         })}
-        {monthEvents.length === 0 && monthVotes.length === 0 ? (
-          <p className="text-sm text-muted text-center py-8">이번 달 일정이 없습니다.</p>
+        {upcomingEvents.length === 0 && upcomingVotes.length === 0 ? (
+          <p className="text-sm text-muted text-center py-8">
+            {selectedDay ? '이 날 일정이 없습니다.' : '다가올 일정이 없습니다.'}
+          </p>
         ) : (
-          monthEvents.map((event) => (
+          upcomingEvents.map((event) => (
             <EventCard key={event.id} event={event} />
           ))
         )}

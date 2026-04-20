@@ -20,6 +20,14 @@ type Member = {
   isAdmin?: boolean
 }
 
+const LEVEL_LABELS: Record<number, { emoji: string; label: string; color: string }> = {
+  1: { emoji: '🌱', label: '새싹', color: '#10B981' },
+  2: { emoji: '🪴', label: '성장', color: '#84CC16' },
+  3: { emoji: '🌳', label: '숲', color: '#3B82F6' },
+  4: { emoji: '🌲', label: '고목', color: '#8B5CF6' },
+  5: { emoji: '🌟', label: '전설', color: '#F59E0B' },
+}
+
 const MAJOR_LABELS: Record<string, string> = {
   글프: '글로벌 프롭테크',
   건개: '부동산 건설개발',
@@ -307,6 +315,11 @@ export default function MembersClient({ members, isAdmin = false, currentUserId 
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-bold text-gray-900">{displayName}</span>
+                  {LEVEL_LABELS[member.level] && (
+                    <span className="text-[10px] font-semibold" style={{ color: LEVEL_LABELS[member.level].color }}>
+                      {LEVEL_LABELS[member.level].emoji} {member.level}
+                    </span>
+                  )}
                   {member.role === 'admin' && (
                     <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold text-white" style={{ background: 'var(--navy)' }}>
                       운영자

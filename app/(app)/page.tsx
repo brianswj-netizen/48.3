@@ -64,7 +64,10 @@ function getCachedHomeData(subgroup: string | null, role: string) {
       const supabase = createAdminClient()
       const today = new Date().toISOString().split('T')[0]
 
-      const [announcementsRes, eventsRes, votesRes] = await Promise.all([
+      const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString()
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString()
+
+      const [announcementsRes, eventsRes, votesRes, contentRes, sapjilRes, creaturesRes] = await Promise.all([
         supabase
           .from('announcements')
           .select('id, title, created_at')
@@ -82,12 +85,34 @@ function getCachedHomeData(subgroup: string | null, role: string) {
           .or(`deadline.is.null,deadline.gte.${today}`)
           .order('created_at', { ascending: false })
           .limit(3),
+        supabase
+          .from('announcements')
+          .select('id, title, ann_type, created_at')
+          .in('ann_type', ['ai_news', 'tip'])
+          .gte('created_at', sevenDaysAgo)
+          .order('created_at', { ascending: false })
+          .limit(5),
+        supabase
+          .from('sapjil_posts')
+          .select('id, title, content, created_at, author:users!author_id(name, nickname)')
+          .gte('created_at', sevenDaysAgo)
+          .order('created_at', { ascending: false })
+          .limit(3),
+        supabase
+          .from('creatures')
+          .select('id, title, description, created_at, author:users!author_id(name, nickname)')
+          .gte('created_at', thirtyDaysAgo)
+          .order('created_at', { ascending: false })
+          .limit(3),
       ])
 
       return {
         announcements: announcementsRes.data ?? [],
         events: eventsRes.data ?? [],
         activeVotes: votesRes.data ?? [],
+        contentAlerts: contentRes.data ?? [],
+        sapjilAlerts: sapjilRes.data ?? [],
+        creaturesAlerts: creaturesRes.data ?? [],
       }
     },
     [`home-data-${subgroup ?? 'none'}-${role}`],
@@ -97,7 +122,7 @@ function getCachedHomeData(subgroup: string | null, role: string) {
 
 export default async function HomePage() {
   const user = await getCurrentUser()
-  const [{ announcements, events, activeVotes }, unreadMentions] = await Promise.all([
+  const [{ announcements, events, activeVotes, contentAlerts, sapjilAlerts, creaturesAlerts }, unreadMentions] = await Promise.all([
     getCachedHomeData(user?.subgroup ?? null, user?.role ?? 'member'),
     user?.id ? getUnreadMentions(user.id) : Promise.resolve([]),
   ])
@@ -134,7 +159,13 @@ export default async function HomePage() {
       <div className="px-4 py-4 flex flex-col gap-4">
 
         {/* 알림 */}
-        <NotificationsSection notifications={unreadMentions as any} voteAlerts={activeVotes} />
+        <NotificationsSection
+          notifications={unreadMentions as any}
+          voteAlerts={activeVotes}
+          contentAlerts={contentAlerts as any}
+          sapjilAlerts={sapjilAlerts as any}
+          creaturesAlerts={creaturesAlerts as any}
+        />
 
         {/* 공지사항 */}
         <section>

@@ -4,7 +4,7 @@ import type { ChatRoom } from '@/lib/types'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
-// ─── 방별 마지막 메시지들 ───
+// ─── 방별 마지막 메시지 2개 ───
 async function getLastMessages(roomId: string) {
   const supabase = createAdminClient()
   const { data } = await supabase
@@ -13,15 +13,14 @@ async function getLastMessages(roomId: string) {
     .eq('room_id', roomId)
     .eq('deleted', false)
     .order('created_at', { ascending: false })
-    .limit(3)
+    .limit(2)
   return (data ?? []).reverse()
 }
 
 // ─── 방 목록 ───
 async function getRooms(role: string, subgroup: string | null) {
   const supabase = createAdminClient()
-  const { data: rooms } = await supabase
-    .from('chat_rooms').select('*')
+  const { data: rooms } = await supabase.from('chat_rooms').select('*')
   if (!rooms) return []
   return rooms.filter((room: ChatRoom) => {
     if (role === 'admin') return true
@@ -29,6 +28,17 @@ async function getRooms(role: string, subgroup: string | null) {
     if (room.type === 'subgroup' && room.subgroup_id === subgroup) return true
     return false
   })
+}
+
+async function getDailyPickCards(categories: string[]) {
+  const supabase = createAdminClient()
+  const { data } = await supabase
+    .from('daily_cards')
+    .select('id, category, title, card_date')
+    .in('category', categories)
+    .order('card_date', { ascending: false })
+    .limit(3)
+  return data ?? []
 }
 
 function formatTime(iso: string) {
@@ -55,17 +65,12 @@ export default async function LoungePage() {
   }
 
   const rooms = await getRooms(user.role, user.subgroup)
-
-  // Chat 방 vs Daily Pick 방 분리
   const chatRooms = rooms.filter((r: ChatRoom) => r.name !== '꿀팁과 정보')
-  const dailyRooms = rooms.reduce((acc: ChatRoom[], r: ChatRoom) => {
-    if (r.name === '꿀팁과 정보' && !acc.length) acc.push(r)
-    return acc
-  }, [])
 
-  const [chatWithPreview, dailyWithPreview] = await Promise.all([
+  const [chatWithPreview, newsItems, tipItems] = await Promise.all([
     Promise.all(chatRooms.map(async (r: ChatRoom) => ({ ...r, messages: await getLastMessages(r.id) }))),
-    Promise.all(dailyRooms.map(async (r: ChatRoom) => ({ ...r, messages: await getLastMessages(r.id) }))),
+    getDailyPickCards(['ai_news', 'deep_article', 'kr_news']),
+    getDailyPickCards(['tips']),
   ])
 
   return (
@@ -87,21 +92,63 @@ export default async function LoungePage() {
         )}
 
         {/* ─── Daily Pick ─── */}
-        {dailyWithPreview.length > 0 && (
-          <>
-            <SectionHeader emoji="✨" title="Daily Pick" />
-            {dailyWithPreview.map(room => <RoomItem key={room.id} room={room} formatTime={formatTime} featured />)}
-          </>
-        )}
+        <SectionHeader emoji="✨" title="Daily Pick" href="/saved-articles" />
+        <div className="mx-4 mb-3 rounded-[14px] px-3 py-2.5 text-xs text-muted"
+          style={{ background: '#F8F9FA', border: '0.5px solid var(--border)' }}>
+          <span className="font-semibold text-gray-600">📅 요일별 콘텐츠: </span>
+          월·수 AI뉴스 🤖 &nbsp;·&nbsp; 화·목 꿀팁 💡 &nbsp;·&nbsp; 금 심층기사 📖 &nbsp;·&nbsp; 토·일 국내뉴스 📰
+        </div>
+        <div className="mx-4 flex flex-col gap-1.5 mb-3">
 
-        {/* ─── 삽질기 ─── */}
-        <SectionHeader emoji="🔧" title="삽질기" href="/sapjil" />
-        <Link href="/sapjil">
-          <div className="mx-4 mb-3 p-3 rounded-[14px] hover:bg-gray-50 active:bg-gray-100 transition-colors"
-            style={{ background: 'white', border: '0.5px solid var(--border)' }}>
-            <p className="text-xs text-muted text-center">맞닥뜨린 문제와 해결책, 경험을 공유하는 공간 →</p>
+          {/* Newsletter */}
+          <div className="p-3 rounded-[14px]"
+            style={{ background: 'linear-gradient(135deg,#F0F9FF,#E0F2FE)', border: '0.5px solid #BAE6FD' }}>
+            <a href="/saved-articles" className="flex items-center gap-2 mb-2">
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm" style={{ background: '#0EA5E9' }}>
+                <span className="text-white text-xs font-bold">N</span>
+              </div>
+              <span className="text-sm font-bold text-gray-900">Newsletter</span>
+            </a>
+            {newsItems.length === 0 ? (
+              <p className="text-xs text-muted">아직 발행된 뉴스레터가 없습니다</p>
+            ) : (
+              <div className="flex flex-col gap-1">
+                {newsItems.map((item: any) => (
+                  <a key={item.id} href={`/saved-articles?open=${item.id}`}
+                    className="text-xs text-gray-700 truncate hover:text-blue-600 active:text-blue-700 block py-0.5">
+                    <span className="text-muted mr-1">{item.card_date}</span>
+                    {item.title}
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
-        </Link>
+
+          {/* 오늘의 꿀팁 */}
+          <div className="p-3 rounded-[14px]"
+            style={{ background: 'linear-gradient(135deg,#FFFBEB,#FEF3C7)', border: '0.5px solid #FDE68A' }}>
+            <a href="/saved-articles" className="flex items-center gap-2 mb-2">
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm" style={{ background: '#F59E0B' }}>
+                <span className="text-white text-sm">💡</span>
+              </div>
+              <span className="text-sm font-bold text-gray-900">오늘의 꿀팁</span>
+            </a>
+            {tipItems.length === 0 ? (
+              <p className="text-xs text-muted">아직 꿀팁이 없습니다</p>
+            ) : (
+              <div className="flex flex-col gap-1">
+                {tipItems.map((item: any) => (
+                  <a key={item.id} href={`/saved-articles?open=${item.id}`}
+                    className="text-xs text-gray-700 truncate hover:text-amber-600 active:text-amber-700 block py-0.5">
+                    <span className="text-muted mr-1">{item.card_date}</span>
+                    {item.title}
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+
+        </div>
 
       </div>
     </div>
@@ -127,7 +174,7 @@ function SectionHeader({ emoji, title, href }: { emoji: string; title: string; h
 
 // ─── 방 아이템 ───
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function RoomItem({ room, formatTime, featured = false }: { room: any; formatTime: (s: string) => string; featured?: boolean }) {
+function RoomItem({ room, formatTime }: { room: any; formatTime: (s: string) => string }) {
   const emoji = ROOM_EMOJI[room.name] ?? '💬'
   const messages: any[] = room.messages ?? []
   const lastMsg = messages[messages.length - 1]
@@ -135,12 +182,11 @@ function RoomItem({ room, formatTime, featured = false }: { room: any; formatTim
 
   return (
     <Link href={`/chat/${room.id}`}>
-      <div className={`mx-4 mb-1.5 rounded-[14px] px-4 py-3 hover:bg-gray-50 active:bg-gray-100 transition-colors`}
-        style={{ background: featured ? 'linear-gradient(135deg,#FDF8FF,#F5F0FF)' : 'white', border: featured ? '0.5px solid #DDD6FE' : '0.5px solid var(--border)' }}>
-        {/* 방 이름 + 시간 */}
+      <div className="mx-4 mb-1.5 rounded-[14px] px-4 py-3 hover:bg-gray-50 active:bg-gray-100 transition-colors"
+        style={{ background: 'white', border: '0.5px solid var(--border)' }}>
         <div className="flex items-center gap-2.5 mb-1.5">
           <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-base"
-            style={{ background: featured ? '#EDE9FE' : 'var(--purple-light)' }}>
+            style={{ background: 'var(--purple-light)' }}>
             {emoji}
           </div>
           <div className="flex-1 flex items-center justify-between gap-2">
@@ -148,7 +194,6 @@ function RoomItem({ room, formatTime, featured = false }: { room: any; formatTim
             {time && <span className="text-[11px] text-muted shrink-0">{time}</span>}
           </div>
         </div>
-        {/* 최근 메시지 3개 */}
         {messages.length === 0 ? (
           <p className="text-xs text-muted ml-[42px]">아직 메시지가 없습니다</p>
         ) : (

@@ -296,7 +296,46 @@ export async function GET(req: NextRequest) {
     tipsMessageId = tipsMsg?.id ?? null
   }
 
-  console.log(`[daily-card] ✅ ${dateStr} ${cat.label} 카드 발행 완료 → 방: 꿀팁과 정보`)
+  // ── 라운지 Daily Pick용 공지사항 저장 ──────────────────────────
+  // 오늘 날짜 기준 중복 방지
+  await supabase.from('announcements')
+    .delete()
+    .eq('ann_type', 'ai_news')
+    .gte('created_at', `${dateStr}T00:00:00+09:00`)
+
+  const newsContent = [
+    card.tldr?.join('\n'),
+    card.body ?? '',
+    card.quote ? `"${card.quote}"${card.quote_src ? ` — ${card.quote_src}` : ''}` : '',
+    card.source_url ? `출처: ${card.source_url}` : '',
+  ].filter(Boolean).join('\n\n').trim()
+
+  await supabase.from('announcements').insert({
+    title:    card.title,
+    content:  newsContent,
+    author_id: botUser.id,
+    ann_type: 'ai_news',
+  })
+
+  if (tips) {
+    await supabase.from('announcements')
+      .delete()
+      .eq('ann_type', 'tip')
+      .gte('created_at', `${dateStr}T00:00:00+09:00`)
+
+    const tipsContent = tips.tips
+      .map(t => `${t.title}\n${t.desc}`)
+      .join('\n\n')
+
+    await supabase.from('announcements').insert({
+      title:    tips.title,
+      content:  tipsContent,
+      author_id: botUser.id,
+      ann_type: 'tip',
+    })
+  }
+
+  console.log(`[daily-card] ✅ ${dateStr} ${cat.label} 카드 발행 완료 → 방: 꿀팁과 정보 + 공지사항`)
 
   return NextResponse.json({
     success:       true,

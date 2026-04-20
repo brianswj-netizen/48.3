@@ -38,6 +38,23 @@ const tabs = [
     ),
   },
   {
+    href: '/makers',
+    label: '제작소',
+    activeColor: '#DB2777',
+    icon: (active: boolean, color: string) => (
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+        <rect x="3" y="3" width="7.5" height="7.5" rx="1.5"
+          fill={active ? color : 'none'} stroke={active ? color : 'var(--muted)'} strokeWidth="1.8" />
+        <rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"
+          fill={active ? color : 'none'} stroke={active ? color : 'var(--muted)'} strokeWidth="1.8" />
+        <rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"
+          fill={active ? color : 'none'} stroke={active ? color : 'var(--muted)'} strokeWidth="1.8" />
+        <rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"
+          fill={active ? color : 'none'} stroke={active ? color : 'var(--muted)'} strokeWidth="1.8" />
+      </svg>
+    ),
+  },
+  {
     href: '/calendar',
     label: '일정',
     activeColor: '#A8BCCE',

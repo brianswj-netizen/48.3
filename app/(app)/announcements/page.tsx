@@ -11,6 +11,7 @@ const getAnnouncementsRaw = unstable_cache(
     const { data } = await supabase
       .from('announcements')
       .select('*, author:users!created_by(name, nickname), announcement_reactions(user_id, emoji)')
+      .order('is_pinned', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(30)
     return data ?? []
@@ -49,6 +50,8 @@ export default async function AnnouncementsPage() {
       author_id: item.created_by ?? null,
       authorName: author?.name ?? author?.nickname ?? '',
       reactions: reactionMap,
+      is_pinned: item.is_pinned ?? false,
+      ann_type: item.ann_type ?? 'general',
     }
   })
 

@@ -11,9 +11,7 @@ const getMembers = unstable_cache(
       .select('id, name, nickname, avatar_url, role, major, generation, birth_year, phone, company, position, bio, level')
       .not('name', 'is', null)
       .not('kakao_id', 'like', 'pre_%')
-      .neq('name', '방수진')
-      .neq('name', '문지연')
-      .neq('name', '최유미')
+      .not('kakao_id', 'like', 'system_%')
       .eq('status', 'approved')
       .order('name', { ascending: true })
     return data ?? []

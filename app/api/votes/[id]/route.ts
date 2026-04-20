@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -28,5 +29,8 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
   const { error } = await supabase.from('votes').delete().eq('id', id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  revalidateTag('votes', {})
+
   return NextResponse.json({ ok: true })
 }

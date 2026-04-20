@@ -5,11 +5,11 @@ import DesignInspirationSection from '@/components/DesignInspirationSection'
 import LabSection from '@/components/LabSection'
 
 const baseMenus = [
-  { href: '/settings',    emoji: '⚙️',  label: '설정',       desc: '프로필·알림·글자크기 설정',      iconBg: '#0EA5E9', iconLight: '#F0F9FF' },
-  { href: '/members',     emoji: '👥',  label: '멤버 소개',  desc: '16명의 크루를 확인하세요',        iconBg: '#F59E0B', iconLight: '#FFFBEB' },
-  { href: '/groups',      emoji: '🫂',  label: '소모임',     desc: '입문반·실전반 소모임',            iconBg: '#7C3AED', iconLight: '#F5F3FF' },
-  { href: '/suggestions', emoji: '💡',  label: '제안',       desc: '앱·모임 개선 아이디어 공유',      iconBg: '#F43F5E', iconLight: '#FFF1F2' },
-  { href: '/votes',       emoji: '🗳️',  label: '투표',       desc: '진행 중인 투표에 참여하세요',     iconBg: '#DC2626', iconLight: '#FEF2F2' },
+  { href: '/settings',    emoji: '⚙️',  label: '설정',        desc: '프로필·알림·글자크기 설정',      iconBg: '#0EA5E9', iconLight: '#F0F9FF' },
+  { href: '/members',     emoji: '👥',  label: '멤버 소개',   desc: '여러분과 함께 하는 Crew입니다',  iconBg: '#F59E0B', iconLight: '#FFFBEB' },
+  { href: '/groups',      emoji: '🫂',  label: '소모임',      desc: '입문반·실전반 소모임',           iconBg: '#7C3AED', iconLight: '#F5F3FF' },
+  { href: '/suggestions', emoji: '💡',  label: '제안',        desc: '앱·모임 개선 아이디어 공유',     iconBg: '#F43F5E', iconLight: '#FFF1F2' },
+  { href: '/votes',       emoji: '🗳️',  label: '투표',        desc: '진행 중인 투표에 참여하세요',    iconBg: '#DC2626', iconLight: '#FEF2F2' },
 ]
 
 const adminMenus = [
@@ -19,15 +19,18 @@ const adminMenus = [
 export default async function MorePage() {
   const user = await getCurrentUser()
 
+  const supabase = createAdminClient()
   let pendingCount = 0
-  if (user?.role === 'admin') {
-    const supabase = createAdminClient()
-    const { count } = await supabase
-      .from('users')
-      .select('id', { count: 'exact', head: true })
-      .eq('status', 'pending')
-    pendingCount = count ?? 0
-  }
+  let memberCount = 0
+
+  const [pendingRes, memberRes] = await Promise.all([
+    user?.role === 'admin'
+      ? supabase.from('users').select('id', { count: 'exact', head: true }).eq('status', 'pending')
+      : Promise.resolve({ count: 0 }),
+    supabase.from('users').select('id', { count: 'exact', head: true }).eq('status', 'approved').not('kakao_id', 'like', 'pre_%'),
+  ])
+  pendingCount = (pendingRes as any).count ?? 0
+  memberCount = memberRes.count ?? 0
 
   const isAdmin = user?.role === 'admin'
 
@@ -84,8 +87,18 @@ export default async function MorePage() {
                 {menu.emoji}
               </div>
               <div className="flex-1">
-                <p className="text-sm font-semibold text-gray-900">{menu.label}</p>
-                <p className="text-xs text-muted mt-0.5">{menu.desc}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-semibold text-gray-900">{menu.label}</p>
+                  {menu.href === '/members' && memberCount > 0 && (
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full"
+                      style={{ background: '#FFFBEB', color: '#F59E0B' }}>
+                      {memberCount}명
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-muted mt-0.5">
+                  {menu.href === '/members' ? '여러분과 함께 하는 Crew입니다' : menu.desc}
+                </p>
               </div>
               <span className="text-muted text-lg">›</span>
             </div>

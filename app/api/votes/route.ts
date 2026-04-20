@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -60,6 +61,8 @@ export async function POST(req: NextRequest) {
 
   const { error: optError } = await supabase.from('vote_options').insert(optionRows)
   if (optError) return NextResponse.json({ error: optError.message }, { status: 500 })
+
+  revalidateTag('votes', {})
 
   return NextResponse.json({ ok: true, id: vote.id })
 }

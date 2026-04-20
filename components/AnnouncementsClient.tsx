@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -17,6 +17,8 @@ type Announcement = {
   author_id?: string | null
   authorName: string
   reactions: Record<string, { count: number; reacted: boolean }>
+  is_pinned?: boolean
+  ann_type?: string
 }
 
 type Comment = {
@@ -200,13 +202,53 @@ export default function AnnouncementsClient({
   const [expanded, setExpanded] = useState<string | null>(
     initialItems.length === 1 ? initialItems[0].id : null
   )
-  // Per-announcement reaction state: Record<announcementId, Record<emoji, {count, reacted}>>
+  // Per-announcement reaction state
   const [allReactions, setAllReactions] = useState<
     Record<string, Record<string, { count: number; reacted: boolean }>>
   >(() => Object.fromEntries(initialItems.map(item => [item.id, item.reactions ?? {}])))
+  // 이모지 반응자 팝오버
+  const [reactorPopover, setReactorPopover] = useState<{ announcementId: string; emoji: string; names: string[] } | null>(null)
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   function toggleExpand(id: string) {
     setExpanded(prev => (prev === id ? null : id))
+  }
+
+  async function handlePin(id: string, currentlyPinned: boolean) {
+    const res = await fetch(`/api/announcements/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin: !currentlyPinned }),
+    })
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}))
+      alert(json.error ?? '핀 설정 실패')
+      return
+    }
+    setItems(prev =>
+      prev.map(item => item.id === id ? { ...item, is_pinned: !currentlyPinned } : item)
+        .sort((a, b) => {
+          if (a.is_pinned && !b.is_pinned) return -1
+          if (!a.is_pinned && b.is_pinned) return 1
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        })
+    )
+  }
+
+  function startLongPress(announcementId: string, emoji: string) {
+    longPressTimer.current = setTimeout(async () => {
+      const res = await fetch(`/api/announcements/${announcementId}/react`)
+      if (!res.ok) return
+      const data: Record<string, string[]> = await res.json()
+      setReactorPopover({ announcementId, emoji, names: data[emoji] ?? [] })
+    }, 500)
+  }
+
+  function cancelLongPress() {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current)
+      longPressTimer.current = null
+    }
   }
 
   async function handleDelete(id: string) {
@@ -306,6 +348,37 @@ export default function AnnouncementsClient({
         )}
       </header>
 
+      {/* 이모지 반응자 팝오버 */}
+      {reactorPopover && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.4)' }}
+          onClick={() => setReactorPopover(null)}>
+          <div className="bg-white rounded-2xl p-5 mx-6 w-full max-w-xs shadow-xl"
+            onClick={e => e.stopPropagation()}>
+            <p className="text-center text-2xl mb-3">{reactorPopover.emoji}</p>
+            {reactorPopover.names.length === 0 ? (
+              <p className="text-sm text-muted text-center">아직 반응이 없습니다</p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {reactorPopover.names.map((name, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
+                      style={{ background: '#E07B54' }}>
+                      {name.charAt(0)}
+                    </div>
+                    <span className="text-sm text-gray-800 font-medium">{name}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <button onClick={() => setReactorPopover(null)}
+              className="mt-4 w-full py-2 rounded-xl text-sm font-semibold text-muted bg-gray-100">
+              닫기
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="px-4 py-4 flex flex-col gap-2">
         {items.length === 0 ? (
           <div className="text-center py-16">
@@ -367,7 +440,21 @@ export default function AnnouncementsClient({
                       onClick={() => toggleExpand(item.id)}
                     >
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-gray-900 leading-snug">{item.title}</p>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {item.is_pinned && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white shrink-0"
+                              style={{ background: '#E07B54' }}>📌 고정</span>
+                          )}
+                          {item.ann_type === 'ai_news' && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0"
+                              style={{ background: '#EDE9FE', color: '#7C3AED' }}>🤖 AI뉴스</span>
+                          )}
+                          {item.ann_type === 'tip' && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0"
+                              style={{ background: '#FEF9C3', color: '#CA8A04' }}>💡 꿀팁</span>
+                          )}
+                        </div>
+                        <p className="text-sm font-bold text-gray-900 leading-snug mt-0.5">{item.title}</p>
                         <div className="flex items-center gap-2 mt-1">
                           <span className="text-xs text-muted">{item.authorName}</span>
                           <span className="text-xs text-muted">{formatDate(item.created_at)}</span>
@@ -376,6 +463,14 @@ export default function AnnouncementsClient({
                       <div className="flex items-center gap-1 shrink-0">
                         {isAdmin && (
                           <>
+                            <button
+                              onClick={e => { e.stopPropagation(); handlePin(item.id, !!item.is_pinned) }}
+                              disabled={!!deleting}
+                              className="transition-colors p-2 min-w-[36px] min-h-[36px] flex items-center justify-center text-base"
+                              title={item.is_pinned ? '고정 해제' : '상단 고정'}
+                            >
+                              {item.is_pinned ? '📌' : '📍'}
+                            </button>
                             <button
                               onClick={e => { e.stopPropagation(); startEdit(item) }}
                               disabled={!!deleting}
@@ -433,8 +528,11 @@ export default function AnnouncementsClient({
                                   <button
                                     key={emoji}
                                     onClick={() => !isSelf && handleReact(item.id, emoji)}
+                                    onPointerDown={() => startLongPress(item.id, emoji)}
+                                    onPointerUp={cancelLongPress}
+                                    onPointerLeave={cancelLongPress}
                                     disabled={isSelf}
-                                    className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold transition-colors disabled:cursor-default"
+                                    className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold transition-colors disabled:cursor-default select-none"
                                     style={
                                       reacted
                                         ? { background: '#E07B54', color: 'white' }

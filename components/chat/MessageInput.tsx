@@ -28,13 +28,20 @@ const EMOJI_GROUPS = [
 
 type MemberOption = { id: string; name: string | null; nickname: string | null }
 
+type ReplyTarget = {
+  senderName: string
+  text: string
+}
+
 type Props = {
   roomId: string
   onSend: (text: string) => Promise<void>
   members?: MemberOption[]
+  replyTo?: ReplyTarget | null
+  onCancelReply?: () => void
 }
 
-export default function MessageInput({ onSend, members = [] }: Props) {
+export default function MessageInput({ onSend, members = [], replyTo, onCancelReply }: Props) {
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
   const [showEmoji, setShowEmoji] = useState(false)
@@ -50,9 +57,18 @@ export default function MessageInput({ onSend, members = [] }: Props) {
     const hasImage = !!imageUrl
     if (!trimmed && !hasImage || sending) return
     setSending(true)
+
+    // 답장 prefix 붙이기
+    let body = trimmed
+    if (replyTo) {
+      const quoteLine = `> ${replyTo.senderName}: ${replyTo.text.split('\n')[0].slice(0, 80)}`
+      body = body ? `${quoteLine}\n\n${body}` : quoteLine
+      onCancelReply?.()
+    }
+
     const messageText = hasImage
-      ? (trimmed ? `${trimmed}\n__IMAGE__:${imageUrl}` : `__IMAGE__:${imageUrl}`)
-      : trimmed
+      ? (body ? `${body}\n__IMAGE__:${imageUrl}` : `__IMAGE__:${imageUrl}`)
+      : body
     setText('')
     setImageUrl(null)
     setShowEmoji(false)
@@ -149,6 +165,20 @@ export default function MessageInput({ onSend, members = [] }: Props) {
 
   return (
     <div className="border-t border-border bg-white px-3 pt-2 pb-1.5">
+      {/* 답장 배너 */}
+      {replyTo && (
+        <div className="mb-2 flex items-center gap-2 px-3 py-1.5 rounded-xl"
+          style={{ background: '#F3F4F6', borderLeft: '3px solid var(--purple)' }}>
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-bold truncate" style={{ color: 'var(--purple)' }}>
+              {replyTo.senderName}에게 답장
+            </p>
+            <p className="text-xs text-muted truncate">{replyTo.text.split('\n')[0].slice(0, 60)}</p>
+          </div>
+          <button onClick={onCancelReply} className="text-muted text-sm shrink-0 p-0.5">✕</button>
+        </div>
+      )}
+
       {/* @멘션 자동완성 드롭다운 */}
       {mentionList.length > 0 && (
         <div className="mb-2 bg-white border border-border rounded-xl shadow-md overflow-hidden">
